@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import re
 import threading
-import math
 from collections.abc import Callable
 from pathlib import Path
 
@@ -61,16 +60,40 @@ def normalize_transcript(text: str, punctuation_commands: bool = True) -> str:
     return text
 
 
+def merge_incremental_transcript(previous: str, current: str) -> str:
+    previous_words = previous.strip().split()
+    current_words = current.strip().split()
+    if not previous_words:
+        return current.strip()
+    if not current_words:
+        return previous.strip()
+
+    maximum_overlap = min(12, len(previous_words), len(current_words))
+    overlap = 0
+    for size in range(maximum_overlap, 0, -1):
+        left = [word.casefold().strip(".,!?;:«»\"'") for word in previous_words[-size:]]
+        right = [word.casefold().strip(".,!?;:«»\"'") for word in current_words[:size]]
+        if left == right:
+            overlap = size
+            break
+
+    merged = [*previous_words, *current_words[overlap:]]
+    return normalize_transcript(" ".join(merged), punctuation_commands=False)
+
+
 def choose_chunk_length(sample_count: int, sample_rate: int = 16_000) -> int:
-    duration = max(0.0, sample_count / sample_rate)
-    return max(10, min(30, math.ceil(duration) + 1))
+    del sample_count, sample_rate
+    return 30
 
 
 class WhisperEngine:
-    def __init__(self) -> None:
+    def __init__(self, cpu_threads: int | None = None) -> None:
         self._model: WhisperModel | None = None
         self._model_name: str | None = None
-        self._cpu_threads = max(1, physical_core_count())
+        detected_threads = max(1, physical_core_count())
+        self._detected_threads = detected_threads
+        self._thread_limit = cpu_threads
+        self._cpu_threads = max(1, min(detected_threads, cpu_threads or 4))
         self._lock = threading.Lock()
         self._transcribe_lock = threading.Lock()
 
@@ -113,6 +136,12 @@ class WhisperEngine:
                 return
 
             model_path = self._resolve_model(model_name, callback)
+            if self._thread_limit is None:
+                recommended_threads = 6 if model_name == "small" else 4
+                self._cpu_threads = max(
+                    1,
+                    min(self._detected_threads, recommended_threads),
+                )
             callback(
                 f"Загрузка модели в память: INT8, {self._cpu_threads} потоков…"
             )
@@ -132,6 +161,7 @@ class WhisperEngine:
         beam_size: int = 1,
         custom_terms: str = "",
         punctuation_commands: bool = True,
+        preview: bool = False,
     ) -> str:
         model = self._model
         if model is None:
@@ -140,7 +170,7 @@ class WhisperEngine:
         selected_language = None if language == "auto" else language
         prompt = custom_terms.strip() or None
         prepared = prepare_audio_for_whisper(samples)
-        chunk_length = choose_chunk_length(prepared.size)
+        chunk_length = 5 if preview else choose_chunk_length(prepared.size)
         with self._transcribe_lock:
             segments, _info = model.transcribe(
                 prepared,
@@ -149,15 +179,15 @@ class WhisperEngine:
                 beam_size=max(1, min(5, beam_size)),
                 best_of=1,
                 temperature=0.0,
-                condition_on_previous_text=prepared.size > 28 * 16_000,
-                vad_filter=True,
+                condition_on_previous_text=False if preview else prepared.size > 28 * 16_000,
+                vad_filter=not preview,
                 vad_parameters={
-                    "min_silence_duration_ms": 600,
-                    "speech_pad_ms": 250,
+                    "min_silence_duration_ms": 250 if preview else 600,
+                    "speech_pad_ms": 100 if preview else 250,
                 },
                 chunk_length=chunk_length,
                 initial_prompt=prompt,
-                no_speech_threshold=0.6,
+                no_speech_threshold=0.5 if preview else 0.6,
                 log_prob_threshold=-1.0,
                 compression_ratio_threshold=2.4,
                 without_timestamps=True,

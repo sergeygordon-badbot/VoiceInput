@@ -12,16 +12,16 @@ from voice_input.model_download import download_model_files
 
 
 def main() -> int:
-    model_name = "small"
-    destination = ROOT / "models" / f"faster-whisper-{model_name}"
-    download_model_files(
-        repo_id=MODEL_REPOSITORIES[model_name],
-        destination=destination,
-        files=MODEL_FILES[model_name],
-        model_label="Whisper Small",
-        status=print,
-    )
-    print(destination.resolve())
+    for model_name in ("tiny", "base"):
+        destination = ROOT / "models" / f"faster-whisper-{model_name}"
+        download_model_files(
+            repo_id=MODEL_REPOSITORIES[model_name],
+            destination=destination,
+            files=MODEL_FILES[model_name],
+            model_label=f"Whisper {model_name.capitalize()}",
+            status=print,
+        )
+        print(destination.resolve())
     return 0
 
 

@@ -11,8 +11,9 @@
 - sounddevice — MIT License;
 - PySide6 / Qt for Python — LGPL-3.0-only / GPL-3.0-only / commercial Qt license.
 
-Модель `Systran/faster-whisper-small` является конвертацией весов OpenAI Whisper
-и опубликована с указанием MIT License.
+Встроенные модели `Systran/faster-whisper-tiny` и
+`Systran/faster-whisper-base` являются конвертациями весов OpenAI Whisper и
+опубликованы с указанием MIT License.
 
 Полные тексты доступных лицензий включаются установщиком в каталог `licenses`.
 Для Qt for Python 6.11.1 там также указана официальная ссылка на исходный код

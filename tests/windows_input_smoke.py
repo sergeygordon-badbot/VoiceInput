@@ -14,12 +14,15 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from voice_input.windows import (
     KEYEVENTF_KEYUP,
-    VK_F8,
+    VK_CONTROL,
     GlobalHotkey,
     _keyboard_input,
     _send_inputs,
     insert_text,
 )
+
+VK_SHIFT = 0x10
+VK_F9 = 0x78
 
 
 def main() -> int:
@@ -37,7 +40,7 @@ def main() -> int:
 
     hotkey_triggered = threading.Event()
     hotkey = GlobalHotkey()
-    hotkey.start("f8", hotkey_triggered.set)
+    hotkey.start("Ctrl+Shift+F9", hotkey_triggered.set)
 
     def type_text() -> None:
         window.raise_()
@@ -48,8 +51,12 @@ def main() -> int:
     def press_hotkey() -> None:
         _send_inputs(
             [
-                _keyboard_input(VK_F8),
-                _keyboard_input(VK_F8, flags=KEYEVENTF_KEYUP),
+                _keyboard_input(VK_CONTROL),
+                _keyboard_input(VK_SHIFT),
+                _keyboard_input(VK_F9),
+                _keyboard_input(VK_F9, flags=KEYEVENTF_KEYUP),
+                _keyboard_input(VK_SHIFT, flags=KEYEVENTF_KEYUP),
+                _keyboard_input(VK_CONTROL, flags=KEYEVENTF_KEYUP),
             ]
         )
 

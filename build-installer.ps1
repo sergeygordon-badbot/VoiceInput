@@ -19,7 +19,7 @@ $version = (& $python -c "from voice_input import __version__; print(__version__
 if (-not $version) {
     throw "Application version was not detected."
 }
-$appExe = Join-Path $PSScriptRoot "dist\VoiceInput-$version\VoiceInput\VoiceInput.exe"
+$appExe = Join-Path $PSScriptRoot "dist\VoiceInput-$version\Rechka\Rechka.exe"
 $scriptFile = Join-Path $PSScriptRoot "installer\VoiceInput.iss"
 
 if ($RebuildApp) {

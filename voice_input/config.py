@@ -7,17 +7,20 @@ from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 from typing import Any
 
+from .hotkeys import HOTKEY_OPTIONS, normalize_hotkey
+
 
 APP_DIR_NAME = "VoiceInput"
 
 MODEL_OPTIONS = {
-    "small": "Small — быстро, включена в установщик",
-    "turbo": "Turbo — максимум точности, очень медленно на CPU (~1,6 ГБ)",
-    "base": "Base — максимально быстро, точность ниже",
-    "medium": "Medium — точнее Small, медленно на CPU (~1,5 ГБ)",
+    "base": "Base — рекомендуется для CPU: быстро",
+    "small": "Small — точнее Base, но заметно медленнее",
+    "turbo": "Turbo — очень медленно на CPU, нужна мощная видеокарта (~1,6 ГБ)",
+    "medium": "Medium — медленно на CPU (~1,5 ГБ)",
 }
 
 MODEL_REPOSITORIES = {
+    "tiny": "Systran/faster-whisper-tiny",
     "base": "Systran/faster-whisper-base",
     "small": "Systran/faster-whisper-small",
     "turbo": "dropbox-dash/faster-whisper-large-v3-turbo",
@@ -25,6 +28,12 @@ MODEL_REPOSITORIES = {
 }
 
 MODEL_FILES = {
+    "tiny": (
+        "config.json",
+        "model.bin",
+        "tokenizer.json",
+        "vocabulary.txt",
+    ),
     "base": (
         "config.json",
         "model.bin",
@@ -53,6 +62,7 @@ MODEL_FILES = {
 }
 
 MODEL_DOWNLOAD_DESCRIPTIONS = {
+    "tiny": "~75 МБ",
     "base": "~150 МБ",
     "small": "~470 МБ",
     "turbo": "~1,6 ГБ",
@@ -95,24 +105,16 @@ INSERTION_OPTIONS = {
     "clipboard": "Только скопировать в буфер",
 }
 
-HOTKEY_OPTIONS = {
-    "ctrl_alt_space": "Ctrl + Alt + Пробел",
-    "ctrl_shift_space": "Ctrl + Shift + Пробел",
-    "ctrl_alt_f8": "Ctrl + Alt + F8",
-    "f8": "F8",
-}
-
-
 @dataclass(slots=True)
 class AppConfig:
-    model: str = "small"
+    model: str = "base"
     decoding_mode: str = "fast"
     output_mode: str = "communication"
     ai_target: str = "universal"
     language: str = "ru"
     device_index: int | None = None
     insertion_mode: str = "paste"
-    hotkey: str = "ctrl_alt_space"
+    hotkey: str = "Ctrl+Alt+Space"
     append_space: bool = True
     punctuation_commands: bool = True
     start_minimized: bool = False
@@ -120,9 +122,10 @@ class AppConfig:
     sound_feedback: bool = False
     custom_terms: str = ""
     project_context: str = ""
-    use_local_ai: bool = True
+    use_local_ai: bool = False
     ollama_model: str = "qwen3:4b"
     beam_size: int = 1
+    settings_revision: int = 2
 
 
 def data_dir() -> Path:
@@ -167,12 +170,19 @@ def load_config() -> AppConfig:
     allowed = {item.name for item in fields(AppConfig)}
     clean: dict[str, Any] = {key: value for key, value in payload.items() if key in allowed}
     is_legacy_config = "decoding_mode" not in payload
+    try:
+        settings_revision = int(payload.get("settings_revision", 0) or 0)
+    except (TypeError, ValueError):
+        settings_revision = 0
+    is_performance_legacy = settings_revision < 2
     config = AppConfig(**clean)
 
     if config.model not in MODEL_OPTIONS:
-        config.model = "small"
-    elif is_legacy_config and config.model in {"medium", "turbo"}:
-        config.model = "small"
+        config.model = "base"
+    elif (
+        is_legacy_config or is_performance_legacy
+    ) and config.model in {"medium", "turbo"}:
+        config.model = "base"
     if config.decoding_mode not in DECODING_OPTIONS:
         config.decoding_mode = "fast"
     if config.output_mode not in OUTPUT_MODE_OPTIONS:
@@ -183,8 +193,10 @@ def load_config() -> AppConfig:
         config.language = "ru"
     if config.insertion_mode not in INSERTION_OPTIONS:
         config.insertion_mode = "paste"
-    if config.hotkey not in HOTKEY_OPTIONS:
-        config.hotkey = "ctrl_alt_space"
+    config.hotkey = normalize_hotkey(config.hotkey)
+    if is_performance_legacy:
+        config.use_local_ai = False
+    config.settings_revision = 2
     config.beam_size = DECODING_BEAM_SIZES[config.decoding_mode]
     return config
 

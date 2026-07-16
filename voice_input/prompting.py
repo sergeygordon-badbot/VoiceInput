@@ -125,8 +125,8 @@ def polish_communication_with_ollama(text: str, model: str) -> str:
             "keep_alive": "10m",
             "options": {
                 "temperature": 0.0,
-                "num_ctx": 4096,
-                "num_predict": 900,
+                "num_ctx": 3072,
+                "num_predict": 500,
             },
         },
         timeout=httpx.Timeout(connect=0.7, read=180.0, write=10.0, pool=1.0),
@@ -190,8 +190,8 @@ def build_prompt_with_ollama(
             "keep_alive": "10m",
             "options": {
                 "temperature": 0.1,
-                "num_ctx": 4096,
-                "num_predict": 900,
+                "num_ctx": 3072,
+                "num_predict": 700,
             },
         },
         timeout=httpx.Timeout(connect=0.7, read=180.0, write=10.0, pool=1.0),

@@ -28,7 +28,7 @@ $iconPath = Join-Path $PSScriptRoot "assets\voiceinput.ico"
     --noconfirm `
     --windowed `
     --onedir `
-    --name VoiceInput `
+    --name Rechka `
     --icon $iconPath `
     --workpath $workPath `
     --distpath $distPath `
@@ -39,11 +39,13 @@ if ($LASTEXITCODE -ne 0) {
     throw "PyInstaller build failed with exit code $LASTEXITCODE."
 }
 
-$target = Join-Path $distPath "VoiceInput"
-$modelSource = Join-Path $PSScriptRoot "models\faster-whisper-small"
-$modelTarget = Join-Path $target "models\faster-whisper-small"
-
-if (Test-Path -LiteralPath $modelSource) {
+$target = Join-Path $distPath "Rechka"
+foreach ($modelName in @("tiny", "base")) {
+    $modelSource = Join-Path $PSScriptRoot "models\faster-whisper-$modelName"
+    $modelTarget = Join-Path $target "models\faster-whisper-$modelName"
+    if (-not (Test-Path -LiteralPath $modelSource)) {
+        throw "Bundled model directory not found: $modelSource"
+    }
     New-Item -ItemType Directory -Force -Path $modelTarget | Out-Null
     foreach ($modelFile in @("config.json", "model.bin", "tokenizer.json", "vocabulary.txt")) {
         $sourceFile = Join-Path $modelSource $modelFile
@@ -70,4 +72,4 @@ if (Test-Path -LiteralPath $releaseConfig) {
     Copy-Item -LiteralPath $releaseConfig -Destination $target -Force
 }
 
-Write-Host "Built: $target\VoiceInput.exe"
+Write-Host "Built: $target\Rechka.exe"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -124,13 +125,22 @@ class AudioRecorder:
                     self._status_messages.append(str(status))
             channel = indata[:, 0]
             rms = float(np.sqrt(np.mean(np.square(channel), dtype=np.float64)))
-            normalized_level = min(1.0, rms / 0.10)
+            peak = float(np.max(np.abs(channel))) if channel.size else 0.0
+            dbfs = 20.0 * math.log10(max(rms, 1e-7))
+            rms_level = max(0.0, min(1.0, (dbfs + 58.0) / 38.0))
+            peak_level = max(0.0, min(1.0, peak / 0.22))
+            normalized_level = max(rms_level, peak_level * 0.72)
             with self._lock:
                 self._chunks.append(channel.copy())
-                self._current_level = max(
-                    normalized_level,
-                    self._current_level * 0.72,
-                )
+                if normalized_level >= self._current_level:
+                    self._current_level = (
+                        normalized_level * 0.78 + self._current_level * 0.22
+                    )
+                else:
+                    self._current_level = max(
+                        normalized_level,
+                        self._current_level * 0.78,
+                    )
 
         stream = sd.InputStream(
             device=selected_index,

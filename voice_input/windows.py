@@ -14,15 +14,14 @@ from ctypes import wintypes
 from pathlib import Path
 from typing import Callable
 
+from .hotkeys import parse_hotkey
+
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
 WM_HOTKEY = 0x0312
 WM_QUIT = 0x0012
-MOD_ALT = 0x0001
-MOD_CONTROL = 0x0002
-MOD_SHIFT = 0x0004
 MOD_NOREPEAT = 0x4000
 VK_SPACE = 0x20
 VK_F8 = 0x77
@@ -41,13 +40,6 @@ GWL_EXSTYLE = -20
 WS_EX_TOOLWINDOW = 0x00000080
 WS_EX_NOACTIVATE = 0x08000000
 SW_SHOWNOACTIVATE = 4
-
-HOTKEY_SPECS = {
-    "ctrl_alt_space": (MOD_CONTROL | MOD_ALT, VK_SPACE),
-    "ctrl_shift_space": (MOD_CONTROL | MOD_SHIFT, VK_SPACE),
-    "ctrl_alt_f8": (MOD_CONTROL | MOD_ALT, VK_F8),
-    "f8": (0, VK_F8),
-}
 
 ULONG_PTR = ctypes.c_ulonglong if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_ulong
 
@@ -266,7 +258,9 @@ class GlobalHotkey:
 
     def start(self, name: str, callback: Callable[[], None]) -> None:
         self.stop()
-        modifiers, virtual_key = HOTKEY_SPECS[name]
+        specification = parse_hotkey(name)
+        modifiers = specification.modifiers
+        virtual_key = specification.virtual_key
         self._ready.clear()
         self._error = None
 

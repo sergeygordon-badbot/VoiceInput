@@ -1,7 +1,7 @@
 #define MyAppName "Речка"
-#define MyAppExeName "VoiceInput.exe"
+#define MyAppExeName "Rechka.exe"
 #ifndef MyAppVersion
-#define MyAppVersion "0.3.2"
+#define MyAppVersion "0.3.3"
 #endif
 #define MyAppPublisher "EBSF"
 
@@ -30,7 +30,7 @@ SolidCompression=yes
 WizardStyle=modern
 SetupLogging=yes
 CloseApplications=yes
-CloseApplicationsFilter={#MyAppExeName}
+CloseApplicationsFilter=VoiceInput.exe,Rechka.exe
 RestartApplications=no
 AppMutex=Local\VoiceInputDesktopApp
 UninstallDisplayName={#MyAppName}
@@ -49,18 +49,22 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-Source: "..\dist\VoiceInput-{#MyAppVersion}\VoiceInput\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\VoiceInput-{#MyAppVersion}\Rechka\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [InstallDelete]
 Type: files; Name: "{autoprograms}\Голосовой ввод.lnk"
 Type: files; Name: "{autodesktop}\Голосовой ввод.lnk"
+Type: files; Name: "{autoprograms}\Речка.lnk"
+Type: files; Name: "{autodesktop}\Речка.lnk"
+Type: files; Name: "{app}\VoiceInput.exe"
+Type: filesandordirs; Name: "{app}\models\faster-whisper-small"
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "VoiceInput"; Flags: uninsdeletevalue dontcreatekey
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; WorkingDir: "{app}"; Flags: nowait

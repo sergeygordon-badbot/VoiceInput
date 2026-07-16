@@ -1,12 +1,22 @@
 from __future__ import annotations
 
+import os
 import queue
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QAction, QCloseEvent, QColor, QIcon, QPainter, QPixmap
+from PySide6.QtGui import (
+    QAction,
+    QCloseEvent,
+    QColor,
+    QIcon,
+    QKeySequence,
+    QPainter,
+    QPixmap,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -16,6 +26,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QKeySequenceEdit,
     QMainWindow,
     QMenu,
     QMessageBox,
@@ -34,7 +45,6 @@ from .config import (
     AI_TARGET_OPTIONS,
     DECODING_BEAM_SIZES,
     DECODING_OPTIONS,
-    HOTKEY_OPTIONS,
     INSERTION_OPTIONS,
     LANGUAGE_OPTIONS,
     MODEL_OPTIONS,
@@ -43,7 +53,8 @@ from .config import (
     load_config,
     save_config,
 )
-from .engine import WhisperEngine
+from .engine import WhisperEngine, merge_incremental_transcript
+from .hotkeys import HOTKEY_OPTIONS, hotkey_label, parse_hotkey
 from .prompting import ProcessedText, process_transcript
 from .updater import (
     UpdateInfo,
@@ -79,38 +90,44 @@ def _reverse_map(mapping: dict[str, str]) -> dict[str, str]:
 class VoiceLevelWidget(QWidget):
     def __init__(self) -> None:
         super().__init__()
-        self.setFixedSize(118, 30)
-        self._levels = [0.08] * 18
+        self.setMinimumWidth(300)
+        self.setFixedHeight(38)
+        self._levels = [0.04] * 28
         self._smoothed = 0.0
 
     def reset(self) -> None:
-        self._levels = [0.08] * 18
+        self._levels = [0.04] * 28
         self._smoothed = 0.0
         self.update()
 
     def set_level(self, level: float) -> None:
         target = max(0.0, min(1.0, level))
-        self._smoothed = max(target, self._smoothed * 0.78)
+        if target >= self._smoothed:
+            self._smoothed = target * 0.72 + self._smoothed * 0.28
+        else:
+            self._smoothed = max(target, self._smoothed * 0.84)
         self._levels.pop(0)
-        self._levels.append(max(0.08, self._smoothed))
+        self._levels.append(max(0.04, self._smoothed))
         self.update()
 
     def paintEvent(self, _event: Any) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setPen(Qt.PenStyle.NoPen)
         width = self.width()
         height = self.height()
-        gap = 2
-        bar_width = max(3, (width - gap * (len(self._levels) - 1)) // len(self._levels))
+        painter.setPen(QColor(BORDER))
+        painter.drawLine(0, height // 2, width, height // 2)
+        painter.setPen(Qt.PenStyle.NoPen)
+        gap = 3
+        bar_width = max(2, (width - gap * (len(self._levels) - 1)) // len(self._levels))
         total_width = bar_width * len(self._levels) + gap * (len(self._levels) - 1)
         start_x = (width - total_width) // 2
         for index, level in enumerate(self._levels):
-            bar_height = max(3, int((height - 6) * level))
+            bar_height = max(3, int((height - 4) * level))
             x = start_x + index * (bar_width + gap)
             y = (height - bar_height) // 2
-            color = QColor(RECORD if level > 0.18 else ACCENT)
-            color.setAlpha(235 if level > 0.18 else 135)
+            color = QColor(RECORD if level > 0.14 else "#9CA3AF")
+            color.setAlpha(245 if level > 0.14 else 145)
             painter.setBrush(color)
             painter.drawRoundedRect(x, y, bar_width, bar_height, 2, 2)
         painter.end()
@@ -134,16 +151,26 @@ class VoiceInputApp:
     def __init__(self, application: QApplication, start_minimized: bool = False) -> None:
         self.application = application
         self.config = load_config()
+        try:
+            save_config(self.config)
+        except OSError:
+            pass
         self.start_minimized = start_minimized or self.config.start_minimized
         self.events: queue.Queue[tuple[str, Any]] = queue.Queue()
         self.recorder = AudioRecorder()
         self.engine = WhisperEngine()
+        self.preview_engine = WhisperEngine(cpu_threads=4)
         self.hotkey = GlobalHotkey()
+        self._registered_hotkey: str | None = None
         self.state = "loading"
         self._closing = False
         self._model_generation = 0
+        self._preview_model_loading = False
+        self._preview_ready = False
         self._recording_session = 0
         self._preview_stop: threading.Event | None = None
+        self._recording_started_at = 0.0
+        self._latest_preview_text = ""
         self._active_output_mode = self.config.output_mode
         self._active_ai_target = self.config.ai_target
         self._active_project_context = self.config.project_context
@@ -156,6 +183,7 @@ class VoiceInputApp:
         self._build_overlay()
         self._refresh_devices()
         self._populate_from_config()
+        self._sync_autostart()
         self.mode_combo.currentIndexChanged.connect(self._on_output_mode_changed)
         self.target_combo.currentIndexChanged.connect(self._on_ai_target_changed)
         self._start_tray()
@@ -376,8 +404,20 @@ class VoiceInputApp:
         form.addRow("Вставка текста", self.insertion_combo)
 
         self.hotkey_combo = QComboBox()
-        self.hotkey_combo.addItems(list(HOTKEY_OPTIONS.values()))
+        self.hotkey_combo.addItems([*HOTKEY_OPTIONS.values(), "Своя комбинация…"])
         form.addRow("Горячая клавиша", self.hotkey_combo)
+
+        self.hotkey_edit = QKeySequenceEdit()
+        self.hotkey_edit.setMaximumSequenceLength(1)
+        self.hotkey_edit.setClearButtonEnabled(True)
+        self.hotkey_edit.setToolTip(
+            "Нажмите одну комбинацию. Например Ctrl+Alt+R или Ctrl+Shift+F9."
+        )
+        form.addRow("Своя комбинация", self.hotkey_edit)
+        self.hotkey_edit_label = form.labelForField(self.hotkey_edit)
+        self.hotkey_combo.currentIndexChanged.connect(
+            self._update_custom_hotkey_visibility
+        )
 
         self.custom_terms_edit = QLineEdit()
         self.custom_terms_edit.setPlaceholderText("Например: Codex, PostgreSQL, Гастроконсьерж")
@@ -397,7 +437,7 @@ class VoiceInputApp:
         self.append_space_check = QCheckBox("Добавлять пробел после вставки")
         self.commands_check = QCheckBox("Понимать «новая строка», «поставь точку»")
         self.use_local_ai_check = QCheckBox(
-            "Использовать локальную Ollama для правки речи и создания промптов"
+            "Обрабатывать результат через Ollama (качественнее, но заметно медленнее)"
         )
         self.sound_feedback_check = QCheckBox("Мягкий звук начала и остановки")
         self.start_minimized_check = QCheckBox("Запускать свёрнутой")
@@ -512,20 +552,32 @@ class VoiceInputApp:
         self.overlay_state_text.setStyleSheet(
             f"color: {TEXT}; font-weight: 500; border: 0;"
         )
-        self.voice_level = VoiceLevelWidget()
+        self.overlay_elapsed = QLabel("00:00")
+        self.overlay_elapsed.setStyleSheet(
+            f"color: {MUTED}; font-size: 9pt; border: 0;"
+        )
         header.addWidget(self.overlay_dot)
         header.addWidget(self.overlay_state_text)
         header.addStretch()
-        header.addWidget(self.voice_level)
+        header.addWidget(self.overlay_elapsed)
         layout.addLayout(header)
 
-        self.overlay_preview = QLabel("Говорите — здесь появится живой черновик.")
+        self.overlay_audio_state = QLabel("Микрофон подключён · начинайте говорить")
+        self.overlay_audio_state.setStyleSheet(
+            f"color: {MUTED}; font-size: 8.5pt; border: 0;"
+        )
+        layout.addWidget(self.overlay_audio_state)
+
+        self.voice_level = VoiceLevelWidget()
+        layout.addWidget(self.voice_level)
+
+        self.overlay_preview = QLabel("Черновик появится через 2–4 секунды.")
         self.overlay_preview.setWordWrap(True)
         self.overlay_preview.setAlignment(
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
         )
-        self.overlay_preview.setMinimumHeight(38)
-        self.overlay_preview.setMaximumHeight(68)
+        self.overlay_preview.setMinimumHeight(42)
+        self.overlay_preview.setMaximumHeight(76)
         self.overlay_preview.setStyleSheet(
             f"color: {TEXT}; font-size: 9.5pt; border: 1px solid {BORDER}; "
             f"background: {CARD_LIGHT}; border-radius: 8px; padding: 7px;"
@@ -649,7 +701,12 @@ class VoiceInputApp:
         self.target_combo.setCurrentText(AI_TARGET_OPTIONS[self.config.ai_target])
         self.language_combo.setCurrentText(LANGUAGE_OPTIONS[self.config.language])
         self.insertion_combo.setCurrentText(INSERTION_OPTIONS[self.config.insertion_mode])
-        self.hotkey_combo.setCurrentText(HOTKEY_OPTIONS[self.config.hotkey])
+        if self.config.hotkey in HOTKEY_OPTIONS:
+            self.hotkey_combo.setCurrentText(HOTKEY_OPTIONS[self.config.hotkey])
+        else:
+            self.hotkey_combo.setCurrentText("Своя комбинация…")
+            self.hotkey_edit.setKeySequence(QKeySequence(self.config.hotkey))
+        self._update_custom_hotkey_visibility()
         self.append_space_check.setChecked(self.config.append_space)
         self.commands_check.setChecked(self.config.punctuation_commands)
         self.use_local_ai_check.setChecked(self.config.use_local_ai)
@@ -661,8 +718,39 @@ class VoiceInputApp:
         self.ollama_model_edit.setText(self.config.ollama_model)
         self._update_mode_description()
         self.hotkey_hint.setText(
-            f"Нажмите {HOTKEY_OPTIONS[self.config.hotkey]} для начала и остановки"
+            f"Нажмите {hotkey_label(self.config.hotkey)} для начала и остановки"
         )
+
+    def _sync_autostart(self, *, silent: bool = True) -> None:
+        if os.environ.get("VOICE_INPUT_DATA_DIR"):
+            return
+        try:
+            main_script = Path(__file__).resolve().parents[1] / "main.py"
+            set_autostart(
+                self.config.autostart,
+                autostart_command(main_script),
+            )
+        except OSError:
+            if not silent:
+                raise
+
+    def _update_custom_hotkey_visibility(self, _index: int = -1) -> None:
+        visible = self.hotkey_combo.currentText() == "Своя комбинация…"
+        self.hotkey_edit.setVisible(visible)
+        if self.hotkey_edit_label is not None:
+            self.hotkey_edit_label.setVisible(visible)
+
+    def _selected_hotkey(self) -> str:
+        reverse_hotkeys = _reverse_map(HOTKEY_OPTIONS)
+        selected = reverse_hotkeys.get(self.hotkey_combo.currentText())
+        if selected:
+            return selected
+        portable = self.hotkey_edit.keySequence().toString(
+            QKeySequence.SequenceFormat.PortableText
+        )
+        if not portable:
+            raise ValueError("Нажмите пользовательскую комбинацию клавиш.")
+        return parse_hotkey(portable).canonical
 
     def _update_mode_description(self) -> None:
         is_ai_prompt = self.config.output_mode == "ai_prompt"
@@ -702,14 +790,33 @@ class VoiceInputApp:
     def _mode_short_name(mode: str) -> str:
         return "AI-промпт" if mode == "ai_prompt" else "Общение"
 
-    def _register_hotkey(self) -> None:
+    def _register_hotkey(
+        self,
+        value: str | None = None,
+        *,
+        interactive: bool = False,
+    ) -> bool:
+        hotkey_value = value or self.config.hotkey
+        candidate = GlobalHotkey()
         try:
-            self.hotkey.start(
-                self.config.hotkey,
+            candidate.start(
+                hotkey_value,
                 lambda: self.events.put(("toggle", None)),
             )
         except Exception as exc:
-            self.events.put(("error", f"Горячая клавиша: {exc}"))
+            candidate.stop()
+            text = f"Не удалось включить {hotkey_label(hotkey_value)}:\n{exc}"
+            if interactive:
+                QMessageBox.warning(self.window, "Горячая клавиша", text)
+            else:
+                self.events.put(("hotkey_error", text))
+            return False
+
+        previous = self.hotkey
+        self.hotkey = candidate
+        self._registered_hotkey = hotkey_value
+        previous.stop()
+        return True
 
     def _load_model(self, model_name: str) -> None:
         self._model_generation += 1
@@ -734,6 +841,24 @@ class VoiceInputApp:
                 self.events.put(("model_error", (generation, str(exc))))
 
         threading.Thread(target=worker, name="model-loader", daemon=True).start()
+
+    def _load_preview_model(self) -> None:
+        if self._preview_ready or self._preview_model_loading or self._closing:
+            return
+        self._preview_model_loading = True
+
+        def worker() -> None:
+            try:
+                self.preview_engine.load("tiny")
+                self.events.put(("preview_model_ready", None))
+            except Exception as exc:
+                self.events.put(("preview_model_error", str(exc)))
+
+        threading.Thread(
+            target=worker,
+            name="preview-model-loader",
+            daemon=True,
+        ).start()
 
     def _set_status(self, text: str, color: str = MUTED) -> None:
         self.status_label.setText(text)
@@ -764,6 +889,8 @@ class VoiceInputApp:
         self._active_ai_target = self.config.ai_target
         self._active_project_context = self.config.project_context
         self._preview_stop = threading.Event()
+        self._recording_started_at = time.monotonic()
+        self._latest_preview_text = ""
         self.state = "recording"
         mode_name = self._mode_short_name(self._active_output_mode)
         self._set_status(
@@ -775,10 +902,19 @@ class VoiceInputApp:
         self.mode_combo.setEnabled(False)
         self.target_combo.setEnabled(False)
         self.voice_level.reset()
+        self.overlay_elapsed.setText("00:00")
+        self.overlay_audio_state.setText("Микрофон подключён · начинайте говорить")
+        self.overlay_audio_state.setStyleSheet(
+            f"color: {MUTED}; font-size: 8.5pt; border: 0;"
+        )
         self._show_overlay(
             f"{mode_name} · идёт запись",
             RECORD,
-            "Говорите — здесь появится живой черновик.",
+            (
+                "Черновик появится через 2–4 секунды."
+                if self._preview_ready
+                else "Подготавливаю быстрый черновик — запись уже идёт."
+            ),
         )
         self._set_tray_color(RECORD)
         threading.Thread(
@@ -817,7 +953,12 @@ class VoiceInputApp:
         self.record_button.setText("Распознавание…")
         self.record_button.setEnabled(False)
         self._style_primary_button(self.record_button, ACCENT)
-        self._show_overlay("Финальная обработка всей фразы…", ACCENT)
+        self.overlay_audio_state.setText("Запись завершена · обрабатываю результат")
+        self._show_overlay(
+            "Финальная расшифровка началась…",
+            ACCENT,
+            self._latest_preview_text or "Обрабатываю записанную фразу…",
+        )
         self.voice_level.set_level(0.0)
         self._set_tray_color(ACCENT)
         threading.Thread(
@@ -832,32 +973,49 @@ class VoiceInputApp:
         session: int,
         stop_event: threading.Event,
     ) -> None:
-        last_duration = 0.0
-        if stop_event.wait(2.0):
+        committed_samples = 0
+        preview_text = ""
+        minimum_new_samples = round(1.15 * 16_000)
+        overlap_samples = round(0.28 * 16_000)
+        maximum_window_samples = round(5.5 * 16_000)
+        if stop_event.wait(0.55):
             return
         while not stop_event.is_set():
+            if not self._preview_ready:
+                if stop_event.wait(0.25):
+                    return
+                continue
+
             clip = self.recorder.snapshot()
-            if (
-                clip.duration_seconds >= 1.2
-                and clip.duration_seconds - last_duration >= 1.0
-                and clip.rms >= 0.001
-            ):
+            sample_count = clip.samples.size
+            if sample_count - committed_samples >= minimum_new_samples:
+                if clip.rms < 0.0012:
+                    committed_samples = sample_count
+                    if stop_event.wait(0.2):
+                        return
+                    continue
+                start = max(0, committed_samples - overlap_samples)
+                start = max(start, sample_count - maximum_window_samples)
+                preview_samples = clip.samples[start:sample_count]
                 try:
-                    text = self.engine.transcribe(
-                        clip.samples,
+                    text = self.preview_engine.transcribe(
+                        preview_samples,
                         language=self.config.language,
                         beam_size=1,
                         custom_terms=self.config.custom_terms,
                         punctuation_commands=self.config.punctuation_commands,
+                        preview=True,
                     )
-                except Exception:
+                except Exception as exc:
+                    self.events.put(("preview_error", (session, str(exc))))
                     return
                 if stop_event.is_set():
                     return
                 if text:
-                    self.events.put(("preview", (session, text)))
-                last_duration = clip.duration_seconds
-            if stop_event.wait(2.2):
+                    preview_text = merge_incremental_transcript(preview_text, text)
+                    self.events.put(("preview", (session, preview_text)))
+                committed_samples = sample_count
+            if stop_event.wait(0.3):
                 return
 
     def _transcribe_worker(
@@ -977,12 +1135,29 @@ class VoiceInputApp:
         reverse_targets = _reverse_map(AI_TARGET_OPTIONS)
         reverse_languages = _reverse_map(LANGUAGE_OPTIONS)
         reverse_insertions = _reverse_map(INSERTION_OPTIONS)
-        reverse_hotkeys = _reverse_map(HOTKEY_OPTIONS)
 
         old_model = self.config.model
         old_hotkey = self.config.hotkey
+        try:
+            selected_hotkey = self._selected_hotkey()
+        except ValueError as exc:
+            QMessageBox.warning(
+                self.window,
+                "Горячая клавиша",
+                str(exc),
+            )
+            return
+        if (
+            selected_hotkey != old_hotkey
+            or self._registered_hotkey != selected_hotkey
+        ) and not self._register_hotkey(
+            selected_hotkey,
+            interactive=True,
+        ):
+            return
+
         self.config = AppConfig(
-            model=reverse_models.get(self.model_combo.currentText(), "small"),
+            model=reverse_models.get(self.model_combo.currentText(), "base"),
             decoding_mode=reverse_decoding.get(
                 self.decoding_combo.currentText(),
                 "fast",
@@ -1001,10 +1176,7 @@ class VoiceInputApp:
                 self.insertion_combo.currentText(),
                 "paste",
             ),
-            hotkey=reverse_hotkeys.get(
-                self.hotkey_combo.currentText(),
-                "ctrl_alt_space",
-            ),
+            hotkey=selected_hotkey,
             append_space=self.append_space_check.isChecked(),
             punctuation_commands=self.commands_check.isChecked(),
             start_minimized=self.start_minimized_check.isChecked(),
@@ -1021,11 +1193,7 @@ class VoiceInputApp:
         save_config(self.config)
 
         try:
-            main_script = Path(__file__).resolve().parents[1] / "main.py"
-            set_autostart(
-                self.config.autostart,
-                autostart_command(main_script),
-            )
+            self._sync_autostart(silent=False)
         except OSError as exc:
             QMessageBox.warning(
                 self.window,
@@ -1033,10 +1201,8 @@ class VoiceInputApp:
                 f"Настройки сохранены, но автозапуск изменить не удалось:\n{exc}",
             )
 
-        if self.config.hotkey != old_hotkey:
-            self._register_hotkey()
         self.hotkey_hint.setText(
-            f"Нажмите {HOTKEY_OPTIONS[self.config.hotkey]} для начала и остановки"
+            f"Нажмите {hotkey_label(self.config.hotkey)} для начала и остановки"
         )
         self._update_mode_description()
         if self.config.model != old_model:
@@ -1173,7 +1339,31 @@ class VoiceInputApp:
         if self._closing:
             return
         if self.state == "recording":
-            self.voice_level.set_level(self.recorder.current_level)
+            level = self.recorder.current_level
+            self.voice_level.set_level(level)
+            elapsed = max(0.0, time.monotonic() - self._recording_started_at)
+            minutes, seconds = divmod(int(elapsed), 60)
+            self.overlay_elapsed.setText(f"{minutes:02d}:{seconds:02d}")
+            if level >= 0.16:
+                self.overlay_audio_state.setText(
+                    "Голос слышу · звук записывается"
+                )
+                self.overlay_audio_state.setStyleSheet(
+                    f"color: {SUCCESS}; font-size: 8.5pt; "
+                    "font-weight: 600; border: 0;"
+                )
+            elif elapsed >= 1.5:
+                self.overlay_audio_state.setText(
+                    "Сейчас тихо · скажите что-нибудь или проверьте микрофон"
+                )
+                self.overlay_audio_state.setStyleSheet(
+                    f"color: {MUTED}; font-size: 8.5pt; border: 0;"
+                )
+            dot_alpha = 255 if int(elapsed * 2) % 2 == 0 else 120
+            self.overlay_dot.setStyleSheet(
+                f"color: rgba(229, 72, 77, {dot_alpha}); "
+                "font-size: 10pt; border: 0;"
+            )
         while True:
             try:
                 event, payload = self.events.get_nowait()
@@ -1200,6 +1390,7 @@ class VoiceInputApp:
                     self._style_primary_button(self.record_button, ACCENT)
                     self._set_status("Готово к диктовке", SUCCESS)
                     self._set_tray_color(ACCENT)
+                    self._load_preview_model()
             elif event == "model_error":
                 generation, text = payload
                 if generation == self._model_generation:
@@ -1210,8 +1401,24 @@ class VoiceInputApp:
             elif event == "preview":
                 session, text = payload
                 if session == self._recording_session and self.state == "recording":
+                    self._latest_preview_text = text
                     self.overlay_preview.setText(text)
                     self._position_overlay()
+            elif event == "preview_error":
+                session, _text = payload
+                if session == self._recording_session and self.state == "recording":
+                    self.overlay_preview.setText(
+                        "Запись продолжается. Живой черновик временно недоступен, "
+                        "финальная расшифровка всё равно будет выполнена."
+                    )
+            elif event == "preview_model_ready":
+                self._preview_model_loading = False
+                self._preview_ready = True
+            elif event == "preview_model_error":
+                self._preview_model_loading = False
+                self._preview_ready = False
+            elif event == "hotkey_error":
+                self._set_status(payload, RECORD)
             elif event == "processing_stage":
                 session, text = payload
                 if session == self._recording_session and self.state == "transcribing":
