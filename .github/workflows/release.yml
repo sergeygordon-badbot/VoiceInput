@@ -49,6 +49,8 @@ jobs:
 
       - name: Build installer
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: .\build-installer.ps1 -RebuildApp
 
       - name: Create checksum
