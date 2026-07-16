@@ -21,6 +21,7 @@ RUNTIME_DISTRIBUTIONS = (
     "huggingface-hub",
     "onnxruntime",
     "av",
+    "Pillow",
     "numpy",
     "tokenizers",
     "PyYAML",
