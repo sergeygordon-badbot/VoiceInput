@@ -1,7 +1,10 @@
 #define MyAppName "Речка"
 #define MyAppExeName "Rechka.exe"
 #ifndef MyAppVersion
-#define MyAppVersion "0.3.4"
+#define MyAppVersion "0.6.0"
+#endif
+#ifndef MyAppSourceDir
+#define MyAppSourceDir "..\dist\VoiceInput-" + MyAppVersion + "\Rechka"
 #endif
 #define MyAppPublisher "EBSF"
 
@@ -55,7 +58,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-Source: "..\dist\VoiceInput-{#MyAppVersion}\Rechka\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#MyAppSourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\{#MyAppExeName}"

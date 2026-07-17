@@ -27,6 +27,7 @@ VK_SPACE = 0x20
 VK_F8 = 0x77
 VK_CONTROL = 0x11
 VK_V = 0x56
+VK_Z = 0x5A
 VK_RETURN = 0x0D
 VK_TAB = 0x09
 KEYEVENTF_KEYUP = 0x0002
@@ -43,6 +44,8 @@ GWL_EXSTYLE = -20
 WS_EX_TOOLWINDOW = 0x00000080
 WS_EX_NOACTIVATE = 0x08000000
 SW_SHOWNOACTIVATE = 4
+SW_RESTORE = 9
+PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 SHOW_SETTINGS_EVENT_NAME = "Local\\VoiceInputShowSettings"
 
 ULONG_PTR = ctypes.c_ulonglong if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_ulong
@@ -109,6 +112,17 @@ user32.SetWindowLongW.argtypes = (wintypes.HWND, ctypes.c_int, wintypes.LONG)
 user32.SetWindowLongW.restype = wintypes.LONG
 user32.ShowWindow.argtypes = (wintypes.HWND, ctypes.c_int)
 user32.ShowWindow.restype = wintypes.BOOL
+user32.GetForegroundWindow.argtypes = ()
+user32.GetForegroundWindow.restype = wintypes.HWND
+user32.SetForegroundWindow.argtypes = (wintypes.HWND,)
+user32.SetForegroundWindow.restype = wintypes.BOOL
+user32.IsWindow.argtypes = (wintypes.HWND,)
+user32.IsWindow.restype = wintypes.BOOL
+user32.GetWindowThreadProcessId.argtypes = (
+    wintypes.HWND,
+    ctypes.POINTER(wintypes.DWORD),
+)
+user32.GetWindowThreadProcessId.restype = wintypes.DWORD
 kernel32.GlobalAlloc.argtypes = (wintypes.UINT, ctypes.c_size_t)
 kernel32.GlobalAlloc.restype = wintypes.HGLOBAL
 kernel32.GlobalLock.argtypes = (wintypes.HGLOBAL,)
@@ -119,6 +133,15 @@ kernel32.GlobalFree.argtypes = (wintypes.HGLOBAL,)
 kernel32.GlobalFree.restype = wintypes.HGLOBAL
 kernel32.GetCurrentThreadId.argtypes = ()
 kernel32.GetCurrentThreadId.restype = wintypes.DWORD
+kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+kernel32.OpenProcess.restype = wintypes.HANDLE
+kernel32.QueryFullProcessImageNameW.argtypes = (
+    wintypes.HANDLE,
+    wintypes.DWORD,
+    wintypes.LPWSTR,
+    ctypes.POINTER(wintypes.DWORD),
+)
+kernel32.QueryFullProcessImageNameW.restype = wintypes.BOOL
 kernel32.CreateMutexW.argtypes = (ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR)
 kernel32.CreateMutexW.restype = wintypes.HANDLE
 kernel32.CreateEventW.argtypes = (
@@ -221,6 +244,73 @@ def paste_from_clipboard() -> None:
     )
 
 
+def foreground_window() -> int:
+    return int(user32.GetForegroundWindow() or 0)
+
+
+def window_process_name(hwnd: int) -> str:
+    if not hwnd or not user32.IsWindow(hwnd):
+        return ""
+    process_id = wintypes.DWORD()
+    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(process_id))
+    if not process_id.value:
+        return ""
+    handle = kernel32.OpenProcess(
+        PROCESS_QUERY_LIMITED_INFORMATION,
+        False,
+        process_id.value,
+    )
+    if not handle:
+        return ""
+    try:
+        capacity = 32_768
+        buffer = ctypes.create_unicode_buffer(capacity)
+        size = wintypes.DWORD(capacity)
+        if not kernel32.QueryFullProcessImageNameW(
+            handle,
+            0,
+            buffer,
+            ctypes.byref(size),
+        ):
+            return ""
+        return Path(buffer.value).name
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def activate_window(hwnd: int) -> bool:
+    if not hwnd or not user32.IsWindow(hwnd):
+        return False
+    user32.ShowWindow(hwnd, SW_RESTORE)
+    return bool(user32.SetForegroundWindow(hwnd))
+
+
+def send_undo(hwnd: int = 0) -> None:
+    if hwnd and not activate_window(hwnd):
+        raise OSError("Не удалось вернуть фокус в окно последней вставки")
+    time.sleep(0.04)
+    _send_inputs(
+        [
+            _keyboard_input(VK_CONTROL),
+            _keyboard_input(VK_Z),
+            _keyboard_input(VK_Z, flags=KEYEVENTF_KEYUP),
+            _keyboard_input(VK_CONTROL, flags=KEYEVENTF_KEYUP),
+        ]
+    )
+
+
+def send_enter(hwnd: int = 0) -> None:
+    if hwnd and not activate_window(hwnd):
+        raise OSError("Не удалось вернуть фокус в окно диктовки")
+    time.sleep(0.04)
+    _send_inputs(
+        [
+            _keyboard_input(VK_RETURN),
+            _keyboard_input(VK_RETURN, flags=KEYEVENTF_KEYUP),
+        ]
+    )
+
+
 def type_unicode_text(text: str) -> None:
     pending: list[INPUT] = []
     utf16_units = struct.unpack(f"<{len(text.encode('utf-16-le')) // 2}H", text.encode("utf-16-le"))
@@ -275,9 +365,18 @@ class GlobalHotkey:
         self._ready = threading.Event()
         self._error: OSError | None = None
 
-    def start(self, name: str, callback: Callable[[], None]) -> None:
+    def start(
+        self,
+        name: str,
+        callback: Callable[[], None],
+        *,
+        allow_unmodified: bool = False,
+    ) -> None:
         self.stop()
-        specification = parse_hotkey(name)
+        specification = parse_hotkey(
+            name,
+            allow_unmodified=allow_unmodified,
+        )
         modifiers = specification.modifiers
         virtual_key = specification.virtual_key
         self._ready.clear()

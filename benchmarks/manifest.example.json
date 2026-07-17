@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "clean-ru-01",
+      "audio": "audio/clean-ru-01.wav",
+      "reference": "Это точная ручная расшифровка записи.",
+      "language": "ru",
+      "custom_terms": "Речка, Codex; PostgreSQL = постгрес | пост грес",
+      "tags": ["clean", "normal-volume"]
+    }
+  ]
+}

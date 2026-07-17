@@ -204,6 +204,46 @@ def build_prompt_with_ollama(
     return result
 
 
+def process_custom_with_ollama(
+    transcript: str,
+    model: str,
+    instruction: str,
+) -> str:
+    response = httpx.post(
+        OLLAMA_CHAT_URL,
+        json={
+            "model": model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "Обработай расшифровку строго по пользовательской инструкции. "
+                        "Не добавляй факты и верни только готовый текст. /no_think\n\n"
+                        f"Инструкция: {instruction.strip()}"
+                    ),
+                },
+                {"role": "user", "content": transcript.strip()},
+            ],
+            "stream": False,
+            "think": False,
+            "keep_alive": "10m",
+            "options": {
+                "temperature": 0.0,
+                "num_ctx": 3072,
+                "num_predict": 700,
+            },
+        },
+        timeout=httpx.Timeout(connect=0.7, read=180.0, write=10.0, pool=1.0),
+    )
+    response.raise_for_status()
+    result = _clean_model_output(
+        str(response.json().get("message", {}).get("content", ""))
+    )
+    if not result:
+        raise RuntimeError("локальная модель вернула пустой ответ")
+    return result
+
+
 def process_transcript(
     transcript: str,
     mode: str,
@@ -211,7 +251,33 @@ def process_transcript(
     ollama_model: str = "qwen3:4b",
     ai_target: str = "universal",
     project_context: str = "",
+    custom_instruction: str = "",
 ) -> ProcessedText:
+    if mode == "verbatim":
+        return ProcessedText(text=transcript.strip())
+    if mode == "custom":
+        instruction = custom_instruction.strip()
+        if use_local_ai and instruction:
+            try:
+                result = process_custom_with_ollama(
+                    transcript,
+                    ollama_model.strip() or "qwen3:4b",
+                    instruction,
+                )
+                return ProcessedText(
+                    text=result,
+                    used_local_ai=True,
+                    note="Применена пользовательская локальная инструкция",
+                )
+            except (httpx.HTTPError, OSError, RuntimeError, ValueError):
+                pass
+        return ProcessedText(
+            text=polish_communication_text(transcript),
+            note=(
+                "Свой режим требует включённую Ollama и инструкцию; "
+                "использована безопасная базовая обработка"
+            ),
+        )
     if mode != "ai_prompt":
         if use_local_ai:
             try:

@@ -1,3 +1,7 @@
+param(
+    [string]$OutputName = ""
+)
+
 $ErrorActionPreference = "Stop"
 
 $python = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
@@ -20,8 +24,12 @@ if ($LASTEXITCODE -ne 0) {
     throw "License collection failed with exit code $LASTEXITCODE."
 }
 
-$workPath = Join-Path $PSScriptRoot "build\VoiceInput-$version-work"
-$distPath = Join-Path $PSScriptRoot "dist\VoiceInput-$version"
+$distName = if ($OutputName) { $OutputName } else { "VoiceInput-$version" }
+if ([IO.Path]::GetFileName($distName) -ne $distName) {
+    throw "OutputName must be a single directory name."
+}
+$workPath = Join-Path $PSScriptRoot "build\$distName-work"
+$distPath = Join-Path $PSScriptRoot "dist\$distName"
 $iconPath = Join-Path $PSScriptRoot "assets\voiceinput.ico"
 
 function Remove-PreviousBuildDirectory {
@@ -41,10 +49,9 @@ function Remove-PreviousBuildDirectory {
         throw "Refusing to remove a build directory outside the workspace: $resolved"
     }
 
-    Get-ChildItem -LiteralPath $resolved -Recurse -Force |
-        ForEach-Object { $_.Attributes = [IO.FileAttributes]::Normal }
-    (Get-Item -LiteralPath $resolved -Force).Attributes =
-        [IO.FileAttributes]::Directory
+    Get-ChildItem -LiteralPath $resolved -Recurse -Force -File |
+        Where-Object { $_.IsReadOnly } |
+        ForEach-Object { $_.IsReadOnly = $false }
     Remove-Item -LiteralPath $resolved -Recurse -Force
 }
 

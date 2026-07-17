@@ -24,19 +24,9 @@ def write_json_file(path: Path | None, payload: dict[str, object]) -> None:
 
 
 def run_self_test(output_path: Path | None = None) -> int:
-    import ctranslate2
-    import sounddevice as sd
+    from voice_input.diagnostics import collect_diagnostics
 
-    from voice_input.audio import list_input_devices
-
-    payload = {
-        "python": sys.version,
-        "platform": sys.platform,
-        "cpu_count": __import__("os").cpu_count(),
-        "compute_types": sorted(ctranslate2.get_supported_compute_types("cpu")),
-        "default_device": list(sd.default.device),
-        "input_devices": list_input_devices(),
-    }
+    payload = collect_diagnostics()
     write_json_file(output_path, payload)
     safe_print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0
@@ -75,6 +65,7 @@ def transcribe_file(
             "ok": True,
             "text": text,
             "statuses": statuses,
+            "inference_profile": engine.inference_profile.to_dict(),
             "model_load_seconds": round(loaded - started, 3),
             "transcription_seconds": round(finished - loaded, 3),
         }

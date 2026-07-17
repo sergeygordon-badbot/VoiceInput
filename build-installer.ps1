@@ -1,5 +1,6 @@
 param(
-    [switch]$RebuildApp
+    [switch]$RebuildApp,
+    [string]$AppBuildDir = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,7 +20,12 @@ $version = (& $python -c "from voice_input import __version__; print(__version__
 if (-not $version) {
     throw "Application version was not detected."
 }
-$appExe = Join-Path $PSScriptRoot "dist\VoiceInput-$version\Rechka\Rechka.exe"
+$appDir = if ($AppBuildDir) {
+    (Resolve-Path -LiteralPath $AppBuildDir).Path
+} else {
+    Join-Path $PSScriptRoot "dist\VoiceInput-$version\Rechka"
+}
+$appExe = Join-Path $appDir "Rechka.exe"
 $scriptFile = Join-Path $PSScriptRoot "installer\VoiceInput.iss"
 
 if ($RebuildApp) {
@@ -86,7 +92,10 @@ if ($null -eq $iscc) {
 }
 
 Write-Host "Building VoiceInput installer..."
-& $iscc.FullName "/DMyAppVersion=$version" $scriptFile
+& $iscc.FullName `
+    "/DMyAppVersion=$version" `
+    "/DMyAppSourceDir=$appDir" `
+    $scriptFile
 if ($LASTEXITCODE -ne 0) {
     throw "Installer compilation failed."
 }

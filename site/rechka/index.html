@@ -4,24 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Речка — бесплатная программа для голосового ввода текста</title>
-  <meta name="description" content="Говорите как думаете: «Речка» превратит русскую речь в аккуратный текст для сообщений, документов и запросов к ИИ. Бесплатно и без регистрации.">
+  <meta name="description" content="Говорите как думаете: «Речка» превращает русскую речь в готовый текст для сообщений, документов и запросов к ИИ. Бесплатно, локально и без регистрации.">
   <meta name="theme-color" content="#f3f1eb">
   <meta name="robots" content="index,follow,max-image-preview:large">
   <link rel="canonical" href="https://ebsf.ru/rechka/">
   <link rel="icon" href="assets/rechka-icon.png">
-
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ru_RU">
-  <meta property="og:site_name" content="Речка">
+  <meta property="og:site_name" content="Речка — проект EBSF">
   <meta property="og:title" content="Речка — говорите вместо того, чтобы печатать">
-  <meta property="og:description" content="Бесплатная программа превращает русскую речь в аккуратный текст для сообщений, документов и запросов к ИИ.">
+  <meta property="og:description" content="Бесплатная программа превращает живую русскую речь в аккуратный текст. Голос обрабатывается на вашем компьютере.">
   <meta property="og:url" content="https://ebsf.ru/rechka/">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Речка — бесплатная программа для голосового ввода">
-  <meta name="twitter:description" content="Говорите как думаете — готовый текст появится там, где вы работаете.">
-
-  <link rel="stylesheet" href="styles-v5.css">
-
+  <meta name="twitter:description" content="Скажите мысль своими словами — получите готовое сообщение, документ или запрос к ИИ.">
+  <link rel="stylesheet" href="styles-v6.css">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -30,54 +27,45 @@
     "alternateName": "VoiceInput",
     "applicationCategory": "UtilitiesApplication",
     "operatingSystem": "Windows 11 x64",
-    "softwareVersion": "0.3.4",
-    "fileSize": "306 MB",
+    "softwareVersion": "0.6.0",
+    "fileSize": "303 MB",
     "inLanguage": "ru",
     "isAccessibleForFree": true,
-    "description": "Бесплатная программа для голосового ввода текста. Превращает русскую речь в аккуратный текст для сообщений, документов и запросов к ИИ.",
-    "downloadUrl": "https://github.com/sergeygordon-badbot/VoiceInput/releases/download/v0.3.4/VoiceInput-Setup-0.3.4.exe",
+    "description": "Бесплатная программа для голосового ввода текста. Превращает русскую речь в готовые сообщения, документы и запросы к ИИ, распознавая голос на компьютере пользователя.",
+    "downloadUrl": "https://github.com/sergeygordon-badbot/VoiceInput/releases/download/v0.6.0/VoiceInput-Setup-0.6.0.exe",
     "url": "https://ebsf.ru/rechka/",
     "featureList": [
       "Голосовой ввод на русском языке",
       "Локальное распознавание речи",
-      "Вставка текста в активное приложение",
       "Очистка явных повторов и оговорок",
+      "Вставка текста в активное приложение",
       "Подготовка структурированных запросов для ИИ"
     ],
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "RUB"
-    },
+    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "RUB"},
     "creator": {
-      "@type": "Person",
-      "name": "Сергей Гордон",
-      "url": "https://ebsf.ru/"
+      "@type": "Organization",
+      "name": "EBSF",
+      "url": "https://ebsf.ru/",
+      "founder": {"@type": "Person", "name": "Сергей Гордон"}
     }
   }
   </script>
 </head>
-<body data-product="rechka">
+<body>
   <a class="skip-link" href="#main">К содержанию</a>
-
   <header class="header">
     <div class="shell header-inner">
-      <a class="brand" href="#top" aria-label="Речка">
-        <span class="brand-mark" aria-hidden="true">
-          <i></i><i></i><i></i><i></i><i></i>
-        </span>
-        <strong>Речка</strong>
-        <small>проект команды</small>
+      <a class="brand" href="#top" aria-label="Речка — проект EBSF">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="brand-lockup"><strong>Речка</strong><small>проект EBSF</small></span>
       </a>
-
       <nav aria-label="Разделы страницы">
-        <a href="#meaning">Как работает</a>
-        <a href="#modes">Режимы</a>
-        <a href="#local">Приватность</a>
+        <a href="#result">Что делает</a>
+        <a href="#use-cases">Где помогает</a>
+        <a href="#privacy">Приватность</a>
+        <a href="#ebsf">О проекте</a>
       </nav>
-
-      <a class="top-download"
-         href="https://github.com/sergeygordon-badbot/VoiceInput/releases/download/v0.3.4/VoiceInput-Setup-0.3.4.exe">
+      <a class="top-download" href="https://github.com/sergeygordon-badbot/VoiceInput/releases/download/v0.6.0/VoiceInput-Setup-0.6.0.exe">
         Скачать
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 16h12"/></svg>
       </a>
@@ -85,225 +73,251 @@
   </header>
 
   <main id="main">
-    <section class="screen hero" id="top">
-      <div class="shell hero-layout">
+    <section class="hero" id="top">
+      <div class="shell hero-grid">
         <div class="hero-copy">
-          <div class="status"><i></i> Бесплатно · без регистрации · публичная бета</div>
-          <h1>
-            Не печатайте.<br>
+          <p class="eyebrow"><i></i> Бесплатная программа для голосового ввода</p>
+          <h1>Не печатайте.<br>
             <span>Скажите.</span>
           </h1>
-          <p>
-            «Речка» — бесплатная программа для голосового ввода. Она превращает
-            русскую речь в аккуратный текст для сообщений, документов и запросов
-            к ИИ. Говорите как думаете — готовый текст появится там, где вы работаете.
+          <p class="hero-lead">
+            Говорите свободно, с паузами и оговорками. «Речка» поймёт смысл,
+            уберёт лишнее и вставит готовый текст туда, где вы работаете.
           </p>
           <div class="hero-actions">
-            <a class="main-button"
-               href="https://github.com/sergeygordon-badbot/VoiceInput/releases/download/v0.3.4/VoiceInput-Setup-0.3.4.exe">
+            <a class="button button-dark" href="https://github.com/sergeygordon-badbot/VoiceInput/releases/download/v0.6.0/VoiceInput-Setup-0.6.0.exe">
               Скачать бесплатно
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 16h12"/></svg>
             </a>
-            <a class="text-button"
-               href="https://github.com/sergeygordon-badbot/VoiceInput"
-               target="_blank"
-               rel="noopener">
+            <a class="text-link" href="https://github.com/sergeygordon-badbot/VoiceInput" target="_blank" rel="noopener">
               Исходный код
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 13 6-6M8 7h5v5"/></svg>
             </a>
           </div>
-          <p class="meta">Сейчас доступна для Windows 11 · версия 0.3.4 · установщик 306 МБ</p>
+          <p class="hero-meta">Windows 11 · версия 0.6.0 · 303 МБ · без регистрации</p>
         </div>
 
-        <div class="voice-object" aria-label="Визуализация голосовой записи">
-          <div class="voice-top">
-            <span><i></i> идёт запись</span>
-            <small>на устройстве</small>
+        <div class="product-demo" aria-label="Пример работы программы">
+          <div class="demo-head">
+            <div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+            <span id="demo-context">Сообщение клиенту</span>
+            <small><i></i> голос обрабатывается локально</small>
           </div>
-
-          <div class="wave" aria-hidden="true">
-            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <div class="demo-body">
+            <div class="speech-card">
+              <span>Вы говорите</span>
+              <p id="demo-input">«Напиши клиенту… нет, лучше коротко. Спроси, получил ли документы и когда сможет ответить».</p>
+              <div class="mini-wave" aria-hidden="true">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              </div>
+            </div>
+            <div class="transform-row">
+              <span>Речка сохраняет смысл и убирает речевой шум</span>
+              <svg viewBox="0 0 28 28" aria-hidden="true"><path d="M4 14h20m-6-6 6 6-6 6"/></svg>
+            </div>
+            <div class="result-card">
+              <div><span>Готовый текст</span><small id="demo-app">Почта</small></div>
+              <p id="demo-output">Добрый день! Подскажите, получили ли вы документы и когда сможете дать обратную связь?</p>
+              <em>Вставлено в активное поле</em>
+            </div>
           </div>
+          <div class="demo-footer">
+            <span>Сообщения</span><span>Документы</span><span>Заметки</span><span>Запросы к ИИ</span>
+          </div>
+        </div>
+      </div>
+      <div class="hero-steps">
+        <div class="shell">
+          <div><span>01</span><b>Скажите как есть</b><small>Не подбирайте идеальные формулировки</small></div>
+          <i></i>
+          <div><span>02</span><b>«Речка» соберёт мысль</b><small>Уберёт повторы, оговорки и лишние паузы</small></div>
+          <i></i>
+          <div><span>03</span><b>Продолжайте работать</b><small>Текст появится в нужном приложении</small></div>
+        </div>
+      </div>
+    </section>
 
-          <p class="live-line" id="live-line">
-            Мне нужно быстро сформулировать мысль…
+    <section class="section result-section" id="result">
+      <div class="shell">
+        <div class="section-intro">
+          <p class="section-index"><span>02</span> Что меняется</p>
+          <h2>Не просто расшифровка.<br><em>Готовая мысль.</em></h2>
+          <p class="section-summary">
+            Обычный голосовой ввод записывает слова. «Речка» помогает получить
+            текст, который уже можно отправить, сохранить или передать ИИ.
           </p>
-
-          <div class="voice-bottom">
-            <span>Сообщение</span>
-            <span>Документ</span>
-            <span>Запрос к ИИ</span>
-          </div>
         </div>
-      </div>
-
-      <div class="hero-note">
-        <div class="shell note-line">
-          <span>01</span>
-          <p>Говорите как думаете</p>
-          <i></i>
-          <p>Получаете готовый текст</p>
-          <i></i>
-          <p>Голос остаётся у вас</p>
-        </div>
-      </div>
-    </section>
-
-    <section class="screen meaning" id="meaning">
-      <div class="shell compact">
-        <div class="section-label">
-          <span>02</span>
-          <h2>Сказали мысль.<br>Получили готовый текст.</h2>
-        </div>
-
-        <div class="meaning-flow">
-          <div class="spoken">
-            <small>Вы говорите как обычно</small>
-            <p>
-              «Напиши клиенту… нет, лучше коротко. Спроси, получил ли документы
-              и когда сможет ответить. Только без официоза».
-            </p>
-          </div>
-
-          <div class="flow-mark" aria-hidden="true">
-            <span></span>
-            <svg viewBox="0 0 28 28"><path d="M4 14h20m-6-6 6 6-6 6"/></svg>
-          </div>
-
-          <div class="written">
-            <small>«Речка» превращает в текст</small>
-            <p>
-              Добрый день! Подскажите, получили ли вы документы
-              и когда сможете дать обратную связь?
-            </p>
-            <em>Смысл сохранён. Оговорки убраны.</em>
-          </div>
-        </div>
-
-        <div class="micro-features">
-          <div><b>Сообщения и письма</b><span>Ответить клиенту или коллеге</span></div>
-          <div><b>Документы и заметки</b><span>Записать мысль, не теряя темп</span></div>
-          <div><b>Запросы к ИИ</b><span>Объяснить задачу своими словами</span></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="screen modes" id="modes">
-      <div class="shell compact">
-        <div class="section-label section-label-light">
-          <span>03</span>
-          <h2>Один голос.<br>Два способа использовать мысль.</h2>
-        </div>
-
-        <div class="mode-panels">
-          <article class="mode mode-human">
-            <div class="mode-head">
-              <span>Текст для общения</span>
-              <i>01</i>
-            </div>
-            <h3>Как вы сказали.<br><em>Только чище.</em></h3>
-            <p>
-              Сохраняет смысл и вашу манеру речи, расставляет знаки препинания,
-              убирает явные повторы и случайные оговорки.
-            </p>
-            <div class="mode-tags">
-              <span>Письма</span><span>Сообщения</span><span>Заметки</span><span>Документы</span>
+        <div class="benefit-grid">
+          <article class="benefit-card benefit-clean">
+            <div class="benefit-head"><span>01</span><b>Исправляет на ходу</b></div>
+            <p class="raw-copy">«Встреча в четверг… <del>нет, в пятницу</del>… да, в пятницу после двух».</p>
+            <div class="card-result"><small>Останется в тексте</small><p>Давайте встретимся в пятницу после 14:00.</p></div>
+          </article>
+          <article class="benefit-card benefit-structure">
+            <div class="benefit-head"><span>02</span><b>Собирает структуру</b></div>
+            <p class="raw-copy">Продиктуйте задачу, список или длинную мысль обычными словами.</p>
+            <div class="structure-list">
+              <span><i></i> Цель</span><span><i></i> Контекст</span>
+              <span><i></i> Требования</span><span><i></i> Формат результата</span>
             </div>
           </article>
+          <article class="benefit-card benefit-voice">
+            <div class="benefit-head"><span>03</span><b>Оставляет ваш голос</b></div>
+            <p class="quote-mark">“</p>
+            <p class="voice-copy">Текст звучит по-человечески — без канцелярита и чужой манеры речи.</p>
+            <div class="tone-tags"><span>Коротко</span><span>Понятно</span><span>По-вашему</span></div>
+          </article>
+        </div>
+      </div>
+    </section>
 
-          <article class="mode mode-ai">
-            <div class="mode-head">
-              <span>Запрос для ИИ</span>
-              <i>02</i>
+    <section class="section use-cases" id="use-cases">
+      <div class="shell">
+        <div class="section-intro section-intro-light">
+          <p class="section-index"><span>03</span> Где помогает</p>
+          <h2>Говорите там, где раньше<br>приходилось печатать.</h2>
+          <p class="section-summary">
+            «Речка» не требует отдельного редактора. Она нужна в обычных рабочих
+            ситуациях — когда мысль уже есть, а набирать её долго.
+          </p>
+        </div>
+        <div class="case-grid">
+          <article class="case-card case-message">
+            <div class="case-top"><span>Ответить</span><small>Почта · мессенджеры</small></div>
+            <h3>Сообщение<br>без набора текста.</h3>
+            <div class="case-ui chat-ui">
+              <span>Клиент</span><p>Когда сможете прислать обновлённую смету?</p>
+              <div><small>Ваш ответ</small><p>Добрый день! Пришлю обновлённую смету сегодня до 17:00.</p></div>
             </div>
-            <h3>Как вы задумали.<br><em>Только структурно.</em></h3>
-            <p>
-              Собирает сказанное в понятную задачу с целью, контекстом,
-              требованиями и форматом результата — для ChatGPT, Claude,
-              Gemini и других ИИ-сервисов.
-            </p>
-            <div class="mode-tags">
-              <span>Цель</span><span>Контекст</span><span>Требования</span><span>Формат</span>
+          </article>
+          <article class="case-card case-document">
+            <div class="case-top"><span>Зафиксировать</span><small>Документы · заметки</small></div>
+            <h3>Мысль не потеряется,<br>пока вы её печатаете.</h3>
+            <div class="case-ui note-ui">
+              <small>Идея для проекта</small>
+              <p>Сначала проверить спрос на одном сценарии, затем добавить автоматизацию и только после этого масштабировать решение.</p>
+              <span>Сохранено</span>
+            </div>
+          </article>
+          <article class="case-card case-ai">
+            <div class="case-top"><span>Объяснить</span><small>ChatGPT · Claude · Gemini</small></div>
+            <h3>Большая мысль —<br>в понятную задачу для ИИ.</h3>
+            <div class="case-ui prompt-ui">
+              <span>Задача</span><p>Подготовить структуру лендинга бесплатного цифрового продукта.</p>
+              <dl>
+                <div><dt>Аудитория</dt><dd>Владельцы малого бизнеса</dd></div>
+                <div><dt>Тон</dt><dd>Простой, без техножаргона</dd></div>
+                <div><dt>Результат</dt><dd>Структура и тексты блоков</dd></div>
+              </dl>
             </div>
           </article>
         </div>
       </div>
     </section>
 
-    <section class="screen local" id="local">
-      <div class="shell local-layout">
-        <div class="section-label">
-          <span>04</span>
-          <p>Голос — личное.<br>Таким и останется.</p>
-        </div>
-
-        <div class="local-main">
-          <div class="orbit" aria-hidden="true">
-            <span class="orbit-a"></span>
-            <span class="orbit-b"></span>
-            <div>
-              <svg viewBox="0 0 24 24"><path d="M7 10V8a5 5 0 0 1 10 0v2m-9 0h8a2 2 0 0 1 2 2v7H6v-7a2 2 0 0 1 2-2Z"/></svg>
+    <section class="section privacy" id="privacy">
+      <div class="shell">
+        <div class="privacy-grid">
+          <div class="device-visual" aria-hidden="true">
+            <div class="device-orbit orbit-one"><i></i></div>
+            <div class="device-orbit orbit-two"><i></i></div>
+            <div class="device-core">
+              <span class="brand-mark brand-mark-large"><i></i><i></i><i></i><i></i><i></i></span>
+              <b>Ваш компьютер</b><small>распознавание происходит здесь</small>
+            </div>
+            <div class="blocked-cloud">
+              <svg viewBox="0 0 32 32"><path d="M9 24h15a6 6 0 0 0 .7-12A9 9 0 0 0 7.5 10.5 7 7 0 0 0 9 24Zm-3-18 20 20"/></svg>
+              <span>не отправляется в облако</span>
             </div>
           </div>
-
-          <div class="local-copy">
-            <h2>Ваш голос<br>никуда не уходит.</h2>
+          <div class="privacy-copy">
+            <p class="section-index"><span>04</span> Приватность</p>
+            <h2>Работает у вас.<br><em>Не у нас.</em></h2>
+            <p>«Речка» распознаёт речь прямо на вашем компьютере. Аудио и расшифровки не отправляются в EBSF и не хранятся в облаке.</p>
             <p>
-              «Речка» распознаёт речь прямо на вашем компьютере. Аудио
-              и расшифровки не отправляются нам и не хранятся в облаке.
-              Внутри используется технология Whisper — отдельно устанавливать
-              или настраивать её не нужно.
+              Внутри программы уже находится технология распознавания Whisper.
+              Пользователю не нужно знать, как она устроена, отдельно её
+              устанавливать или подключать сторонний сервис.
             </p>
-            <p>
-              Интернет нужен только для обновлений и загрузки дополнительных моделей.
-            </p>
-            <a href="https://github.com/sergeygordon-badbot/VoiceInput/blob/main/PRIVACY.md"
-               target="_blank"
-               rel="noopener">
-              Политика конфиденциальности
+            <a class="text-link" href="https://github.com/sergeygordon-badbot/VoiceInput/blob/main/PRIVACY.md" target="_blank" rel="noopener">
+              Прочитать политику конфиденциальности
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 13 6-6M8 7h5v5"/></svg>
             </a>
           </div>
         </div>
-
-        <div class="local-rail">
-          <div><span>На компьютере</span><b>Распознавание речи</b></div>
-          <div><span>Без аккаунта</span><b>Регистрация не нужна</b></div>
-          <div><span>Только по желанию</span><b>Дополнительные модели</b></div>
+        <div class="privacy-facts">
+          <div><span>01</span><b>Без аккаунта</b><small>Регистрация не нужна</small></div>
+          <div><span>02</span><b>Локально</b><small>Голос остаётся на компьютере</small></div>
+          <div><span>03</span><b>Открыто</b><small>Исходный код опубликован на GitHub</small></div>
         </div>
       </div>
     </section>
 
-    <section class="screen finish" id="download">
-      <div class="shell finish-layout">
-        <div>
-          <div class="section-label section-label-light">
-            <span>05</span>
-            <p>Попробуйте на первой реальной задаче.</p>
+    <section class="section agency" id="ebsf">
+      <div class="shell agency-grid">
+        <div class="agency-copy">
+          <p class="section-index"><span>05</span> Проект EBSF</p>
+          <h2>Полезный продукт<br>вместо рекламного<br><em>обещания.</em></h2>
+          <p>
+            «Речка» — самостоятельный бесплатный продукт digital-агентства EBSF.
+            Мы создаём сайты, сервисы, автоматизацию и связанные цифровые системы для бизнеса.
+          </p>
+          <p>
+            Этот проект показывает наш подход на практике: берём конкретную ежедневную
+            проблему, разбираемся в ней, проектируем понятный сценарий и доводим решение до работающего инструмента.
+          </p>
+          <div class="agency-actions">
+            <a class="button button-dark" href="/">
+              Познакомиться с EBSF
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 13 6-6M8 7h5v5"/></svg>
+            </a>
+            <span>Основатель — Сергей Гордон</span>
           </div>
-          <h2 class="finish-title">Отправьте первое<br>сообщение без<br>клавиатуры.</h2>
         </div>
+        <div class="agency-system">
+          <div class="agency-title"><small>Digital-агентство</small><strong>EBSF</strong></div>
+          <div class="system-path">
+            <div><span>01</span><b>Реальная проблема</b></div><i></i>
+            <div><span>02</span><b>Понятная логика</b></div><i></i>
+            <div><span>03</span><b>Работающий продукт</b></div>
+          </div>
+          <blockquote>Не демонстрация технологии ради технологии, а инструмент, которым можно пользоваться каждый день.</blockquote>
+          <div class="free-note">
+            <span>Почему бесплатно?</span>
+            <p>Чтобы продуктом пользовались, а EBSF узнавали по реальной работе, а не по громким обещаниям.</p>
+          </div>
+        </div>
+      </div>
+    </section>
 
-        <div class="download-box">
-          <span>Речка 0.3.4</span>
+    <section class="section download" id="download">
+      <div class="shell download-grid">
+        <div class="download-copy">
+          <p class="section-index"><span>06</span> Начать</p>
+          <h2>Скажите.<br><em>Речка напишет.</em></h2>
+          <p>Установите программу и попробуйте её не на тестовой фразе, а на первом реальном сообщении, которое собирались напечатать.</p>
+        </div>
+        <div class="download-card">
+          <div class="download-card-head">
+            <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+            <div><strong>Речка 0.6.0</strong><small>публичная бета</small></div>
+          </div>
           <dl>
             <div><dt>Система</dt><dd>Windows 11 x64</dd></div>
-            <div><dt>Установщик</dt><dd>306 МБ</dd></div>
-            <div><dt>Распознавание</dt><dd>на компьютере</dd></div>
+            <div><dt>Установщик</dt><dd>303 МБ</dd></div>
             <div><dt>Регистрация</dt><dd>Не нужна</dd></div>
             <div><dt>Стоимость</dt><dd>Бесплатно</dd></div>
           </dl>
-          <a href="https://github.com/sergeygordon-badbot/VoiceInput/releases/download/v0.3.4/VoiceInput-Setup-0.3.4.exe">
+          <a class="download-primary" href="https://github.com/sergeygordon-badbot/VoiceInput/releases/download/v0.6.0/VoiceInput-Setup-0.6.0.exe">
             Скачать установщик
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 16h12"/></svg>
           </a>
+          <a class="download-source" href="https://github.com/sergeygordon-badbot/VoiceInput" target="_blank" rel="noopener">Посмотреть исходный код на GitHub</a>
           <small>
-            Установщик весит 306 МБ, потому что модели распознавания уже
-            находятся внутри. Windows SmartScreen может показать предупреждение:
-            публичная бета пока не подписана коммерческим сертификатом.
+            Модели распознавания уже находятся внутри установщика. Windows
+            SmartScreen может показать предупреждение: публичная бета пока
+            не подписана коммерческим сертификатом.
           </small>
         </div>
       </div>
@@ -312,19 +326,18 @@
 
   <footer>
     <div class="shell footer-inner">
-      <a class="brand" href="#top">
+      <a class="brand brand-footer" href="#top">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-        <strong>Речка</strong>
+        <span class="brand-lockup"><strong>Речка</strong><small>проект EBSF</small></span>
       </a>
-      <p>Бесплатный продукт digital-команды Сергея Гордона.</p>
+      <p>Бесплатная программа для голосового ввода текста.</p>
       <div>
-        <a href="/">О digital-команде</a>
+        <a href="/">EBSF</a>
         <a href="https://github.com/sergeygordon-badbot/VoiceInput" target="_blank" rel="noopener">GitHub</a>
         <a href="https://github.com/sergeygordon-badbot/VoiceInput/issues" target="_blank" rel="noopener">Поддержка</a>
       </div>
     </div>
   </footer>
-
-  <script src="motion-v3.js"></script>
+  <script src="motion-v4.js"></script>
 </body>
 </html>

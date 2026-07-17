@@ -12,6 +12,7 @@ import numpy as np
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 
 from faster_whisper import WhisperModel
+from faster_whisper.vad import VadOptions, get_speech_timestamps
 
 from .config import (
     MODEL_DOWNLOAD_DESCRIPTIONS,
@@ -21,8 +22,8 @@ from .config import (
     downloaded_model_path,
 )
 from .audio import prepare_audio_for_whisper
+from .hardware import InferenceProfile, detect_inference_profile
 from .model_download import download_model_files, model_is_complete
-from .windows import physical_core_count
 
 
 StatusCallback = Callable[[str], None]
@@ -35,17 +36,158 @@ class TranscriptSegment:
     text: str
 
 
+@dataclass(frozen=True, slots=True)
+class VadProfile:
+    threshold: float
+    min_speech_duration_ms: int
+    min_silence_duration_ms: int
+    speech_pad_ms: int
+
+    def to_dict(self) -> dict[str, float | int]:
+        return {
+            "threshold": self.threshold,
+            "min_speech_duration_ms": self.min_speech_duration_ms,
+            "min_silence_duration_ms": self.min_silence_duration_ms,
+            "speech_pad_ms": self.speech_pad_ms,
+        }
+
+
+DEFAULT_VAD_PROFILE = "balanced"
+PREVIEW_VAD_PROFILE = "sensitive"
+VAD_PROFILES: dict[str, VadProfile | None] = {
+    # The balanced profile preserves the production thresholds that were used
+    # before speech detection moved in front of Whisper.
+    "balanced": VadProfile(
+        threshold=0.35,
+        min_speech_duration_ms=120,
+        min_silence_duration_ms=450,
+        speech_pad_ms=300,
+    ),
+    # A live preview may end in the middle of a word, so it needs shorter
+    # minimum regions and slightly more sensitivity.
+    "sensitive": VadProfile(
+        threshold=0.30,
+        min_speech_duration_ms=80,
+        min_silence_duration_ms=250,
+        speech_pad_ms=180,
+    ),
+    # This profile is intentionally conservative and exists for benchmark A/B
+    # runs on noisy recordings; it is not exposed in the main application UI.
+    "strict": VadProfile(
+        threshold=0.50,
+        min_speech_duration_ms=180,
+        min_silence_duration_ms=500,
+        speech_pad_ms=250,
+    ),
+    "off": None,
+}
+_VAD_LOCK = threading.Lock()
+
+
+def detect_speech_regions(
+    samples: np.ndarray,
+    profile_name: str = DEFAULT_VAD_PROFILE,
+) -> tuple[tuple[int, int], ...]:
+    if profile_name not in VAD_PROFILES:
+        available = ", ".join(VAD_PROFILES)
+        raise ValueError(f"Неизвестный VAD-профиль: {profile_name}. Доступны: {available}")
+
+    prepared = np.ascontiguousarray(samples, dtype=np.float32).reshape(-1)
+    if prepared.size == 0:
+        return ()
+    profile = VAD_PROFILES[profile_name]
+    if profile is None:
+        return ((0, prepared.size),)
+
+    options = VadOptions(**profile.to_dict())
+    with _VAD_LOCK:
+        chunks = get_speech_timestamps(
+            prepared,
+            options,
+            sampling_rate=16_000,
+        )
+    return tuple(
+        (max(0, int(chunk["start"])), min(prepared.size, int(chunk["end"])))
+        for chunk in chunks
+        if int(chunk["end"]) > int(chunk["start"])
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class GlossaryEntry:
+    canonical: str
+    aliases: tuple[str, ...] = ()
+
+
+def parse_custom_terms(value: str) -> tuple[GlossaryEntry, ...]:
+    entries: list[GlossaryEntry] = []
+    seen: set[str] = set()
+    for group in re.split(r"[;\n]+", value):
+        group = group.strip()
+        if not group:
+            continue
+        if "=" in group:
+            canonical, raw_aliases = group.split("=", 1)
+            candidates = [(canonical.strip(), raw_aliases)]
+        else:
+            candidates = [(item.strip(), "") for item in group.split(",")]
+        for canonical, raw_aliases in candidates:
+            key = canonical.casefold()
+            if not canonical or key in seen:
+                continue
+            aliases = tuple(
+                alias.strip()
+                for alias in re.split(r"[|,]", raw_aliases)
+                if alias.strip() and alias.strip().casefold() != key
+            )
+            entries.append(GlossaryEntry(canonical=canonical, aliases=aliases))
+            seen.add(key)
+    return tuple(entries)
+
+
+def apply_custom_terms(text: str, custom_terms: str) -> str:
+    replacements: list[tuple[str, str]] = []
+    for entry in parse_custom_terms(custom_terms):
+        replacements.extend((alias, entry.canonical) for alias in entry.aliases)
+        replacements.append((entry.canonical, entry.canonical))
+    replacements.sort(key=lambda item: len(item[0]), reverse=True)
+    for source, canonical in replacements:
+        text = re.sub(
+            rf"(?<!\w){re.escape(source)}(?!\w)",
+            lambda _match, value=canonical: value,
+            text,
+            flags=re.IGNORECASE,
+        )
+    return text
+
+
+def custom_terms_hotwords(custom_terms: str) -> str | None:
+    terms = [entry.canonical for entry in parse_custom_terms(custom_terms)]
+    return ", ".join(terms) or None
+
+
 def apply_voice_commands(text: str) -> str:
     replacements = (
         (r"\bновый абзац\b", "\n\n"),
         (r"\bновая строка\b", "\n"),
-        (r"\bпоставь точку\b", "."),
-        (r"\bпоставь запятую\b", ","),
-        (r"\bвопросительный знак\b", "?"),
-        (r"\bвосклицательный знак\b", "!"),
+        (r"\b(?:и\s+)?поставь точку\b[.]?", "."),
+        (r"\b(?:и\s+)?поставь запятую\b[.]?", ","),
+        (
+            r"\b(?:и\s+)?(?:поставь\s+(?:в\s+)?)?"
+            r"вопросительн(?:ый|ого|ых?)\s+знак\b[.]?",
+            "?",
+        ),
+        (
+            r"\b(?:и\s+)?(?:поставь\s+(?:в\s+)?)?"
+            r"восклицательн(?:ый|ого|ых?)\s+знак\b[.]?",
+            "!",
+        ),
+        (r"\b(?:и\s+)?поставь двоеточие\b[.]?", ":"),
+        (r"\b(?:и\s+)?поставь точку с запятой\b[.]?", ";"),
     )
     for pattern, replacement in replacements:
         text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+    text = re.sub(r"([!?])\s*[.]", r"\1", text)
     return text
 
 
@@ -95,10 +237,15 @@ def choose_chunk_length(sample_count: int, sample_rate: int = 16_000) -> int:
 
 
 class WhisperEngine:
-    def __init__(self, cpu_threads: int | None = None) -> None:
+    def __init__(
+        self,
+        cpu_threads: int | None = None,
+        device_preference: str = "auto",
+    ) -> None:
         self._model: WhisperModel | None = None
         self._model_name: str | None = None
-        detected_threads = max(1, physical_core_count())
+        self._profile = detect_inference_profile(device_preference)
+        detected_threads = self._profile.physical_cores
         self._detected_threads = detected_threads
         self._thread_limit = cpu_threads
         self._cpu_threads = max(1, min(detected_threads, cpu_threads or 4))
@@ -112,6 +259,10 @@ class WhisperEngine:
     @property
     def cpu_threads(self) -> int:
         return self._cpu_threads
+
+    @property
+    def inference_profile(self) -> InferenceProfile:
+        return self._profile
 
     def _resolve_model(self, model_name: str, status: StatusCallback) -> Path:
         required_files = MODEL_FILES[model_name]
@@ -150,16 +301,34 @@ class WhisperEngine:
                     1,
                     min(self._detected_threads, recommended_threads),
                 )
-            callback(
-                f"Загрузка модели в память: INT8, {self._cpu_threads} потоков…"
+            profile = self._profile
+            accelerator = (
+                f"CUDA {profile.compute_type}"
+                if profile.device == "cuda"
+                else f"CPU {profile.compute_type.upper()}, {self._cpu_threads} потоков"
             )
-            self._model = WhisperModel(
-                str(model_path),
-                device="cpu",
-                compute_type="int8",
-                cpu_threads=self._cpu_threads,
-                num_workers=1,
-            )
+            callback(f"Загрузка модели в память: {accelerator}…")
+            try:
+                self._model = WhisperModel(
+                    str(model_path),
+                    device=profile.device,
+                    device_index=profile.device_index,
+                    compute_type=profile.compute_type,
+                    cpu_threads=self._cpu_threads,
+                    num_workers=1,
+                )
+            except Exception as exc:
+                if profile.device != "cuda":
+                    raise
+                callback(f"CUDA недоступна ({exc}). Переключаюсь на CPU…")
+                self._profile = detect_inference_profile("cpu")
+                self._model = WhisperModel(
+                    str(model_path),
+                    device="cpu",
+                    compute_type=self._profile.compute_type,
+                    cpu_threads=self._cpu_threads,
+                    num_workers=1,
+                )
             self._model_name = model_name
 
     def transcribe(
@@ -170,6 +339,7 @@ class WhisperEngine:
         custom_terms: str = "",
         punctuation_commands: bool = True,
         preview: bool = False,
+        vad_profile: str = DEFAULT_VAD_PROFILE,
     ) -> str:
         segments = self.transcribe_segments(
             samples,
@@ -177,8 +347,10 @@ class WhisperEngine:
             beam_size=beam_size,
             custom_terms=custom_terms,
             preview=preview,
+            vad_profile=vad_profile,
         )
         text = " ".join(segment.text for segment in segments)
+        text = apply_custom_terms(text, custom_terms)
         return normalize_transcript(text, punctuation_commands=punctuation_commands)
 
     def transcribe_segments(
@@ -188,33 +360,50 @@ class WhisperEngine:
         beam_size: int = 1,
         custom_terms: str = "",
         preview: bool = False,
+        vad_profile: str = DEFAULT_VAD_PROFILE,
     ) -> list[TranscriptSegment]:
         model = self._model
         if model is None:
             raise RuntimeError("Модель ещё не загружена")
 
         selected_language = None if language == "auto" else language
-        prompt = custom_terms.strip() or None
+        hotwords = custom_terms_hotwords(custom_terms)
         prepared = prepare_audio_for_whisper(samples)
         chunk_length = 5 if preview else choose_chunk_length(prepared.size)
+        selected_vad_profile = (
+            PREVIEW_VAD_PROFILE
+            if preview and vad_profile == DEFAULT_VAD_PROFILE
+            else vad_profile
+        )
+        speech_regions = detect_speech_regions(prepared, selected_vad_profile)
+        if not speech_regions:
+            return []
+        profile = VAD_PROFILES[selected_vad_profile]
+        transcription_audio = (
+            np.concatenate(
+                [prepared[start:end] for start, end in speech_regions],
+                dtype=np.float32,
+            )
+            if profile is not None and not preview
+            else prepared
+        )
         with self._transcribe_lock:
             segments, _info = model.transcribe(
-                prepared,
+                transcription_audio,
                 language=selected_language,
                 task="transcribe",
                 beam_size=max(1, min(5, beam_size)),
                 best_of=1,
                 temperature=0.0,
-                condition_on_previous_text=False if preview else prepared.size > 28 * 16_000,
-                vad_filter=not preview,
-                vad_parameters={
-                    "threshold": 0.35,
-                    "min_speech_duration_ms": 120,
-                    "min_silence_duration_ms": 250 if preview else 450,
-                    "speech_pad_ms": 120 if preview else 300,
-                },
+                # VAD regions are concatenated, matching faster-whisper's own
+                # filtering strategy. Passing them as separate clip timestamps
+                # measurably harms recognition context at region boundaries.
+                vad_filter=False,
+                condition_on_previous_text=(
+                    False if preview else prepared.size > 28 * 16_000
+                ),
                 chunk_length=chunk_length,
-                initial_prompt=prompt,
+                hotwords=hotwords,
                 no_speech_threshold=0.55 if preview else 0.75,
                 log_prob_threshold=-1.0,
                 compression_ratio_threshold=2.4,
@@ -226,7 +415,7 @@ class WhisperEngine:
                 TranscriptSegment(
                     start=max(0.0, float(segment.start)),
                     end=max(0.0, float(segment.end)),
-                    text=segment.text.strip(),
+                    text=apply_custom_terms(segment.text.strip(), custom_terms),
                 )
                 for segment in segments
                 if segment.text.strip()

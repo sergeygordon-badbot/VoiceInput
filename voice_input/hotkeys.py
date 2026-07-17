@@ -119,7 +119,7 @@ def _normalize_key(value: str) -> tuple[str, int]:
     )
 
 
-def parse_hotkey(value: str) -> HotkeySpec:
+def parse_hotkey(value: str, *, allow_unmodified: bool = False) -> HotkeySpec:
     if not isinstance(value, str):
         raise ValueError("Введите сочетание клавиш.")
     source = LEGACY_HOTKEYS.get(value.strip().lower(), value.strip())
@@ -140,7 +140,7 @@ def parse_hotkey(value: str) -> HotkeySpec:
         raise ValueError("Сочетание должно содержать одну основную клавишу.")
 
     key_name, virtual_key = _normalize_key(key_parts[0])
-    if not modifiers and not key_name.startswith("F"):
+    if not allow_unmodified and not modifiers and not key_name.startswith("F"):
         raise ValueError("Добавьте Ctrl, Alt, Shift или Win.")
 
     ordered_modifiers = [name for name in MODIFIER_ORDER if name in modifiers]

@@ -60,7 +60,7 @@ def _download_qt_license(path: str) -> str:
     )
     headers = {
         "Accept": "application/vnd.github.raw+json",
-        "User-Agent": "Rechka-License-Collector/0.3.4",
+        "User-Agent": "Rechka-License-Collector/0.6.0",
         "X-GitHub-Api-Version": "2022-11-28",
     }
     token = os.environ.get("GITHUB_TOKEN", "").strip()

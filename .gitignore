@@ -8,4 +8,5 @@ dist/
 *.spec
 models/
 test-output/
+benchmarks/user/
 release.json

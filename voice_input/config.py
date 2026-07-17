@@ -82,8 +82,10 @@ DECODING_BEAM_SIZES = {
 }
 
 OUTPUT_MODE_OPTIONS = {
+    "verbatim": "Дословно — только распознавание",
     "communication": "Общение — близко к оригиналу",
     "ai_prompt": "Промпт для AI — структурированная задача",
+    "custom": "Свой режим — локальная инструкция",
 }
 
 AI_TARGET_OPTIONS = {
@@ -121,11 +123,16 @@ class AppConfig:
     autostart: bool = False
     sound_feedback: bool = False
     custom_terms: str = ""
+    snippets: str = ""
+    app_profiles: str = ""
     project_context: str = ""
+    custom_instruction: str = ""
+    history_enabled: bool = False
     use_local_ai: bool = False
     ollama_model: str = "qwen3:4b"
     beam_size: int = 1
-    settings_revision: int = 2
+    onboarding_complete: bool = False
+    settings_revision: int = 3
 
 
 def data_dir() -> Path:
@@ -175,6 +182,7 @@ def load_config() -> AppConfig:
     except (TypeError, ValueError):
         settings_revision = 0
     is_performance_legacy = settings_revision < 2
+    is_existing_before_onboarding = "onboarding_complete" not in payload
     config = AppConfig(**clean)
 
     if config.model not in MODEL_OPTIONS:
@@ -196,7 +204,9 @@ def load_config() -> AppConfig:
     config.hotkey = normalize_hotkey(config.hotkey)
     if is_performance_legacy:
         config.use_local_ai = False
-    config.settings_revision = 2
+    if is_existing_before_onboarding:
+        config.onboarding_complete = True
+    config.settings_revision = 3
     config.beam_size = DECODING_BEAM_SIZES[config.decoding_mode]
     return config
 
