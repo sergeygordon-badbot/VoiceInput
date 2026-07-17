@@ -11,8 +11,11 @@ from voice_input.config import MODEL_FILES, MODEL_REPOSITORIES
 from voice_input.model_download import download_model_files
 
 
+BUNDLED_MODELS = ("tiny", "base")
+
+
 def main() -> int:
-    for model_name in ("base",):
+    for model_name in BUNDLED_MODELS:
         destination = ROOT / "models" / f"faster-whisper-{model_name}"
         download_model_files(
             repo_id=MODEL_REPOSITORIES[model_name],

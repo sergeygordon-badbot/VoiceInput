@@ -969,6 +969,30 @@ class ConfigTests(unittest.TestCase):
                 os.environ["VOICE_INPUT_DATA_DIR"] = previous
 
 
+class BuildPackagingTests(unittest.TestCase):
+    def test_release_downloader_prepares_every_bundled_model(self) -> None:
+        from tools import download_bundled_model
+
+        with (
+            patch.object(
+                download_bundled_model,
+                "download_model_files",
+            ) as download,
+            patch("builtins.print"),
+        ):
+            result = download_bundled_model.main()
+
+        self.assertEqual(result, 0)
+        destinations = [
+            call.kwargs["destination"].name
+            for call in download.call_args_list
+        ]
+        self.assertEqual(
+            destinations,
+            ["faster-whisper-tiny", "faster-whisper-base"],
+        )
+
+
 class UpdaterTests(unittest.TestCase):
     def test_version_parser(self) -> None:
         self.assertEqual(parse_version("v0.3.1"), (0, 3, 1))

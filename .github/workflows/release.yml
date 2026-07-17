@@ -43,7 +43,7 @@ jobs:
         shell: pwsh
         run: .\.venv\Scripts\python.exe tools\check_release_version.py "${{ github.ref_name }}"
 
-      - name: Download bundled Whisper model
+      - name: Download bundled Whisper models
         shell: pwsh
         run: .\.venv\Scripts\python.exe tools\download_bundled_model.py
 
