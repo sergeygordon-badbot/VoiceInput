@@ -1,5 +1,5 @@
 /* Rechka landing v7 */
-/* Landing styles v8: viewport-safe sections with consistent vertical spacing. */
+/* Landing styles v9: viewport-safe sections and a refined floating header. */
 :root {
   --paper: #f3f1eb;
   --paper-deep: #e8e5dc;
@@ -55,20 +55,30 @@ svg {
   inset: 0 0 auto;
   z-index: 100;
   height: var(--header);
-  border-bottom: 1px solid var(--line);
-  background: rgba(243, 241, 235, 0.92);
+  padding: 10px 0;
+  background: linear-gradient(to bottom, rgba(243, 241, 235, 0.88), rgba(243, 241, 235, 0));
+}
+.header-inner {
+  display: flex;
+  align-items: center;
+  height: 56px;
+  gap: 18px;
+  padding: 0 8px 0 12px;
+  border: 1px solid rgba(23, 24, 22, 0.13);
+  border-radius: 14px;
+  background: rgba(248, 247, 242, 0.92);
+  box-shadow: 0 8px 30px rgba(23, 24, 22, 0.07);
   backdrop-filter: blur(18px);
 }
-.header-inner { display: flex; align-items: center; height: 100%; gap: 30px; }
-.brand { display: inline-flex; align-items: center; flex: none; gap: 11px; }
+.brand { display: inline-flex; align-items: center; flex: none; gap: 10px; }
 .brand-mark {
   display: flex;
   align-items: center;
   justify-content: center;
   flex: none;
   gap: 2px;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: var(--ink);
 }
@@ -76,31 +86,65 @@ svg {
 .brand-mark i:nth-child(1), .brand-mark i:nth-child(5) { height: 7px; }
 .brand-mark i:nth-child(2), .brand-mark i:nth-child(4) { height: 14px; }
 .brand-mark i:nth-child(3) { height: 20px; }
-.brand-lockup { display: grid; gap: 2px; line-height: 1; }
-.brand-lockup strong { font-size: 16px; letter-spacing: -0.035em; }
+.brand-lockup { display: grid; gap: 3px; line-height: 1; }
+.brand-lockup strong { font-size: 15px; letter-spacing: -0.035em; }
 .brand-lockup small {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
-nav { display: flex; gap: 26px; margin-left: auto; }
-nav a { color: var(--muted); font-size: 11px; font-weight: 700; transition: color 150ms ease; }
-nav a:hover { color: var(--ink); }
+nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  padding: 4px;
+  border: 1px solid rgba(23, 24, 22, 0.08);
+  border-radius: 10px;
+  background: rgba(23, 24, 22, 0.035);
+}
+nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+nav a:hover {
+  background: var(--white);
+  color: var(--ink);
+  box-shadow: 0 2px 9px rgba(23, 24, 22, 0.07);
+}
 .top-download {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 40px;
-  padding: 0 16px;
-  border-radius: 999px;
+  min-height: 42px;
+  padding: 0 15px;
+  border-radius: 10px;
   background: var(--ink);
   color: var(--white);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
+  transition: transform 150ms ease, box-shadow 150ms ease;
 }
-.top-download svg { width: 15px; height: 15px; }
+.top-download:hover {
+  box-shadow: 0 0 0 3px rgba(199, 255, 54, 0.34);
+  transform: translateY(-1px);
+}
+.top-download svg { width: 15px; height: 15px; color: var(--acid); }
+.brand:focus-visible,
+nav a:focus-visible,
+.top-download:focus-visible {
+  outline: 2px solid var(--acid);
+  outline-offset: 2px;
+}
 
 .hero {
   min-height: 0;
@@ -620,7 +664,8 @@ footer { background: var(--ink); color: var(--white); }
 .footer-inner > div a { color: #b5b7b0; font-size: 9px; }
 
 @media (max-width: 1100px) {
-  nav { gap: 18px; }
+  nav { gap: 2px; }
+  nav a { padding-inline: 10px; }
   .hero-grid { grid-template-columns: minmax(0, 0.85fr) minmax(460px, 1.15fr); gap: 44px; }
   .section-intro { grid-template-columns: 120px minmax(0, 1fr) 260px; gap: 28px; }
   .case-card { padding: 25px; }
@@ -752,11 +797,17 @@ footer { background: var(--ink); color: var(--white); }
 @media (max-width: 620px) {
   :root { --header: 68px; }
   .shell { width: min(calc(100% - 28px), var(--shell)); }
-  .header-inner { gap: 14px; }
-  .brand-mark { width: 34px; height: 34px; }
+  .header { padding: 8px 0; }
+  .header-inner {
+    height: 52px;
+    gap: 10px;
+    padding: 0 6px 0 8px;
+    border-radius: 12px;
+  }
+  .brand-mark { width: 32px; height: 32px; }
   .brand-lockup strong { font-size: 15px; }
   .brand-lockup small { font-size: 7px; }
-  .top-download { min-height: 38px; padding-inline: 13px; }
+  .top-download { min-height: 38px; padding-inline: 12px; border-radius: 9px; }
   .hero { padding-top: calc(var(--header) + 48px); }
   .hero-grid { gap: 50px; padding-bottom: 50px; }
   .eyebrow { margin-bottom: 24px; font-size: 8px; }
