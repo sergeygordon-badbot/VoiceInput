@@ -49,6 +49,9 @@ jobs:
             "needed=true" >> $env:GITHUB_OUTPUT
             Write-Host "Release $tag will be built from ${{ github.sha }}."
           }
+          # `gh release view` intentionally returns 1 when the release is new.
+          # Do not propagate that expected probe result as the step exit code.
+          exit 0
 
       - name: Prepare build environment
         if: steps.release.outputs.needed == 'true'
