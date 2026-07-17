@@ -124,7 +124,7 @@ def main() -> int:
             encoding="utf-8",
         )
     (qt_directory / "SOURCE-AND-NOTICE.txt").write_text(
-        "VoiceInput uses the unmodified community distribution of Qt for Python "
+        "Rechka uses the unmodified community distribution of Qt for Python "
         "(PySide6) 6.11.1 under LGPLv3/GPLv3.\n\n"
         "Official source code for this exact version:\n"
         "https://download.qt.io/official_releases/QtForPython/pyside6/"
@@ -132,7 +132,7 @@ def main() -> int:
         "Qt for Python licensing documentation:\n"
         "https://doc.qt.io/qtforpython-6/index.html\n\n"
         "The Qt libraries are shipped as separate dynamically loaded DLL files "
-        "inside the application directory. VoiceInput does not restrict lawful "
+        "inside the application directory. Rechka does not restrict lawful "
         "reverse engineering for debugging modifications to LGPL components.\n",
         encoding="utf-8",
     )

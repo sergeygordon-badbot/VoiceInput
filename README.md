@@ -149,7 +149,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build-installer.ps1
 сверяет размер и SHA-256 из GitHub API.
 
 При запуске из исходников канал обновлений можно задать переменной
-`VOICE_INPUT_UPDATE_REPOSITORY=OWNER/VoiceInput` или файлом `release.json` по
+`VOICE_INPUT_UPDATE_REPOSITORY=OWNER/Rechka` или файлом `release.json` по
 образцу `release.example.json`. В релизной сборке этот файл создаётся автоматически.
 
 Чтобы опубликовать новую версию:

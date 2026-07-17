@@ -670,9 +670,9 @@ footer { background: var(--ink); color: var(--white); }
   .note-ui > span { margin-top: 13px; }
   .prompt-ui > p { margin: 8px 0 12px; }
   .prompt-ui dl div { padding: 7px 0; }
-  .use-cases { padding-block: 28px; }
+  .use-cases { padding-block: 26px; }
   .use-cases .section-intro { margin-bottom: 24px; }
-  .use-cases .section-intro h2 { font-size: 58px; }
+  .use-cases .section-intro h2 { font-size: 50px; }
   .use-cases .case-card { min-height: 390px; }
 
   .privacy-grid { gap: clamp(48px, 6vw, 82px); }
