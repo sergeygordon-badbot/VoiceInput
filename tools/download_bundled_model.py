@@ -12,7 +12,7 @@ from voice_input.model_download import download_model_files
 
 
 def main() -> int:
-    for model_name in ("tiny", "base"):
+    for model_name in ("base",):
         destination = ROOT / "models" / f"faster-whisper-{model_name}"
         download_model_files(
             repo_id=MODEL_REPOSITORIES[model_name],

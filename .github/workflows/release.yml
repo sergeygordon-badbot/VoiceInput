@@ -57,10 +57,14 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ github.ref_name }}".TrimStart("v")
-          $installer = "dist\installer\VoiceInput-Setup-$version.exe"
-          $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  VoiceInput-Setup-$version.exe" |
-            Set-Content -LiteralPath "$installer.sha256" -Encoding ascii
+          $primary = "dist\installer\Rechka-Setup-$version.exe"
+          $legacy = "dist\installer\VoiceInput-Setup-$version.exe"
+          $primaryHash = (Get-FileHash -LiteralPath $primary -Algorithm SHA256).Hash.ToLowerInvariant()
+          $legacyHash = (Get-FileHash -LiteralPath $legacy -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$primaryHash  Rechka-Setup-$version.exe" |
+            Set-Content -LiteralPath "$primary.sha256" -Encoding ascii
+          "$legacyHash  VoiceInput-Setup-$version.exe" |
+            Set-Content -LiteralPath "$legacy.sha256" -Encoding ascii
 
       - name: Publish GitHub Release
         shell: pwsh
@@ -69,6 +73,8 @@ jobs:
         run: |
           $version = "${{ github.ref_name }}".TrimStart("v")
           gh release create "${{ github.ref_name }}" `
+            "dist\installer\Rechka-Setup-$version.exe" `
+            "dist\installer\Rechka-Setup-$version.exe.sha256" `
             "dist\installer\VoiceInput-Setup-$version.exe" `
             "dist\installer\VoiceInput-Setup-$version.exe.sha256" `
             --title "Речка $version — публичная beta" `

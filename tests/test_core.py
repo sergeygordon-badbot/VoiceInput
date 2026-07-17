@@ -46,6 +46,7 @@ from voice_input.engine import (
     apply_custom_terms,
     choose_chunk_length,
     detect_speech_regions,
+    is_reliable_preview_text,
     merge_incremental_transcript,
     normalize_transcript,
     parse_custom_terms,
@@ -56,6 +57,7 @@ from voice_input.history import append_history, clear_history, load_history
 from voice_input.hotkeys import hotkey_label, parse_hotkey
 from voice_input.prompting import (
     build_prompt_fallback,
+    improve_communication_punctuation,
     polish_communication_text,
     process_transcript,
 )
@@ -69,6 +71,7 @@ from voice_input.personalization import (
 )
 from voice_input.updater import (
     UpdateError,
+    check_for_update,
     launch_update_installer,
     parse_version,
     update_from_release_payload,
@@ -284,6 +287,22 @@ class TextTests(unittest.TestCase):
         )
         self.assertEqual(text, "Подготовь сообщение?")
 
+    def test_spoken_dash_and_hyphen_commands_are_distinct(self) -> None:
+        self.assertEqual(
+            normalize_transcript("главное поставь тире сохранить смысл"),
+            "Главное — сохранить смысл",
+        )
+        self.assertEqual(
+            normalize_transcript("северо поставь дефис западный"),
+            "Северо-западный",
+        )
+
+    def test_spoken_semicolon_command_is_not_partly_consumed(self) -> None:
+        self.assertEqual(
+            normalize_transcript("первое поставь точку с запятой второе"),
+            "Первое; второе",
+        )
+
     def test_custom_terms_preserve_casing_and_explicit_aliases(self) -> None:
         glossary = "Codex, GitHub; PostgreSQL = постгрес | пост грес"
         text = apply_custom_terms(
@@ -305,6 +324,15 @@ class TextTests(unittest.TestCase):
         self.assertEqual(
             merge_incremental_transcript(previous, current),
             "Мне нужно быстро сформулировать мысль и вставить текст",
+        )
+
+    def test_live_preview_rejects_repetitive_hallucination(self) -> None:
+        hallucination = " ".join(["я не знаю что я не знаю"] * 6)
+        self.assertFalse(is_reliable_preview_text(hallucination))
+        self.assertTrue(
+            is_reliable_preview_text(
+                "Проверяю запись микрофона и диктую нормальное предложение"
+            )
         )
 
     def test_final_transcription_keeps_segments_after_thirty_seconds(self) -> None:
@@ -410,6 +438,40 @@ class TextTests(unittest.TestCase):
     def test_communication_cleanup_is_conservative(self) -> None:
         text = polish_communication_text("Эм, я я хочу оставить этот смысл.")
         self.assertEqual(text, "Я хочу оставить этот смысл.")
+
+    def test_communication_mode_marks_obvious_direct_questions(self) -> None:
+        self.assertEqual(
+            polish_communication_text("где находится файл."),
+            "Где находится файл?",
+        )
+        self.assertEqual(
+            polish_communication_text("можешь проверить обновление"),
+            "Можешь проверить обновление?",
+        )
+        self.assertEqual(
+            polish_communication_text("ты можешь проверить обновление."),
+            "Ты можешь проверить обновление?",
+        )
+        self.assertEqual(
+            polish_communication_text("подскажите пожалуйста где установщик"),
+            "Подскажите, пожалуйста, где установщик?",
+        )
+
+    def test_communication_mode_does_not_rewrite_indirect_question(self) -> None:
+        self.assertEqual(
+            polish_communication_text("я не знаю, где находится файл."),
+            "Я не знаю, где находится файл.",
+        )
+
+    def test_communication_punctuation_uses_russian_dash(self) -> None:
+        self.assertEqual(
+            improve_communication_punctuation("Главное - сохранить смысл."),
+            "Главное — сохранить смысл.",
+        )
+        self.assertEqual(
+            improve_communication_punctuation("Как красиво."),
+            "Как красиво.",
+        )
 
     def test_prompt_fallback_preserves_source(self) -> None:
         source = "Нужно ускорить расшифровку и сохранить точность."
@@ -684,7 +746,7 @@ class ConfigTests(unittest.TestCase):
         self.assertIn("verbatim", OUTPUT_MODE_OPTIONS)
         self.assertIn("chatgpt", AI_TARGET_OPTIONS)
 
-    def test_legacy_medium_config_migrates_to_fast_small(self) -> None:
+    def test_legacy_medium_config_migrates_to_balanced_base(self) -> None:
         previous = os.environ.get("VOICE_INPUT_DATA_DIR")
         try:
             with tempfile.TemporaryDirectory() as directory:
@@ -695,10 +757,11 @@ class ConfigTests(unittest.TestCase):
                 )
                 actual = load_config()
                 self.assertEqual(actual.model, "base")
-                self.assertEqual(actual.decoding_mode, "fast")
+                self.assertEqual(actual.decoding_mode, "balanced")
+                self.assertEqual(actual.beam_size, 2)
                 self.assertFalse(actual.sound_feedback)
                 self.assertFalse(actual.use_local_ai)
-                self.assertEqual(actual.hotkey, "Ctrl+Alt+Space")
+                self.assertEqual(actual.hotkey, "Ctrl+Space")
         finally:
             if previous is None:
                 os.environ.pop("VOICE_INPUT_DATA_DIR", None)
@@ -723,10 +786,62 @@ class ConfigTests(unittest.TestCase):
                 )
                 actual = load_config()
                 self.assertEqual(actual.model, "base")
-                self.assertEqual(actual.hotkey, "Ctrl+Alt+Space")
+                self.assertEqual(actual.decoding_mode, "balanced")
+                self.assertEqual(actual.hotkey, "Ctrl+Space")
                 self.assertFalse(actual.use_local_ai)
-                self.assertEqual(actual.settings_revision, 3)
+                self.assertEqual(actual.settings_revision, 5)
                 self.assertTrue(actual.onboarding_complete)
+        finally:
+            if previous is None:
+                os.environ.pop("VOICE_INPUT_DATA_DIR", None)
+            else:
+                os.environ["VOICE_INPUT_DATA_DIR"] = previous
+
+    def test_current_custom_hotkey_is_not_overwritten(self) -> None:
+        previous = os.environ.get("VOICE_INPUT_DATA_DIR")
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                os.environ["VOICE_INPUT_DATA_DIR"] = directory
+                (Path(directory) / "settings.json").write_text(
+                    json.dumps(
+                        {
+                            "hotkey": "Ctrl+Alt+Space",
+                            "settings_revision": 5,
+                            "onboarding_complete": True,
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+
+                actual = load_config()
+
+                self.assertEqual(actual.hotkey, "Ctrl+Alt+Space")
+        finally:
+            if previous is None:
+                os.environ.pop("VOICE_INPUT_DATA_DIR", None)
+            else:
+                os.environ["VOICE_INPUT_DATA_DIR"] = previous
+
+    def test_current_fast_decoding_choice_is_not_overwritten(self) -> None:
+        previous = os.environ.get("VOICE_INPUT_DATA_DIR")
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                os.environ["VOICE_INPUT_DATA_DIR"] = directory
+                (Path(directory) / "settings.json").write_text(
+                    json.dumps(
+                        {
+                            "decoding_mode": "fast",
+                            "settings_revision": 5,
+                            "onboarding_complete": True,
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+
+                actual = load_config()
+
+                self.assertEqual(actual.decoding_mode, "fast")
+                self.assertEqual(actual.beam_size, 1)
         finally:
             if previous is None:
                 os.environ.pop("VOICE_INPUT_DATA_DIR", None)
@@ -768,6 +883,67 @@ class UpdaterTests(unittest.TestCase):
         with self.assertRaises(UpdateError):
             update_from_release_payload(payload, "0.3.1")
 
+    @patch("voice_input.updater.httpx.get")
+    def test_update_check_follows_repository_redirects(self, get: object) -> None:
+        response = get.return_value
+        response.json.return_value = {
+            "tag_name": "v0.6.1",
+            "html_url": "https://github.com/example/rechka/releases/tag/v0.6.1",
+            "draft": False,
+            "body": "",
+            "assets": [
+                {
+                    "name": "Rechka-Setup-0.6.1.exe",
+                    "browser_download_url": (
+                        "https://github.com/example/rechka/releases/download/"
+                        "v0.6.1/Rechka-Setup-0.6.1.exe"
+                    ),
+                    "size": 123,
+                    "digest": "sha256:" + "a" * 64,
+                }
+            ],
+        }
+
+        update = check_for_update("example/rechka", "0.6.0")
+
+        self.assertIsNotNone(update)
+        self.assertTrue(get.call_args.kwargs["follow_redirects"])
+
+    def test_update_prefers_rechka_installer_over_legacy_copy(self) -> None:
+        payload = {
+            "tag_name": "v0.6.1",
+            "html_url": "https://github.com/example/rechka/releases/tag/v0.6.1",
+            "draft": False,
+            "body": "",
+            "assets": [
+                {
+                    "name": "VoiceInput-Setup-0.6.1.exe",
+                    "browser_download_url": (
+                        "https://github.com/example/rechka/releases/download/"
+                        "v0.6.1/VoiceInput-Setup-0.6.1.exe"
+                    ),
+                    "size": 123,
+                    "digest": "sha256:" + "a" * 64,
+                },
+                {
+                    "name": "Rechka-Setup-0.6.1.exe",
+                    "browser_download_url": (
+                        "https://github.com/example/rechka/releases/download/"
+                        "v0.6.1/Rechka-Setup-0.6.1.exe"
+                    ),
+                    "size": 123,
+                    "digest": "sha256:" + "b" * 64,
+                },
+            ],
+        }
+
+        update = update_from_release_payload(payload, "0.6.0")
+
+        self.assertIsNotNone(update)
+        assert update is not None
+        self.assertEqual(update.asset.name, "Rechka-Setup-0.6.1.exe")
+        self.assertEqual(update.asset.sha256, "b" * 64)
+
     def test_update_installer_runs_silently_and_closes_the_app(self) -> None:
         previous = os.environ.get("VOICE_INPUT_DATA_DIR")
         try:
@@ -776,7 +952,7 @@ class UpdaterTests(unittest.TestCase):
                 installer = (
                     Path(directory)
                     / "updates"
-                    / "VoiceInput-Setup-9.9.9.exe"
+                    / "Rechka-Setup-9.9.9.exe"
                 )
                 installer.parent.mkdir(parents=True)
                 installer.write_bytes(b"test installer")
@@ -802,6 +978,7 @@ class WindowsInteropTests(unittest.TestCase):
     def test_custom_hotkey_parser(self) -> None:
         specification = parse_hotkey("Ctrl+Shift+F9")
         self.assertEqual(specification.canonical, "Ctrl+Shift+F9")
+        self.assertEqual(hotkey_label("ctrl_space"), "Ctrl + Пробел")
         self.assertEqual(hotkey_label("ctrl_alt_space"), "Ctrl + Alt + Пробел")
         with self.assertRaises(ValueError):
             parse_hotkey("R")

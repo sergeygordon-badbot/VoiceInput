@@ -22,7 +22,7 @@ REPOSITORY_PATTERN = re.compile(
     r"[A-Za-z0-9_.-]{1,100}$"
 )
 INSTALLER_PATTERN = re.compile(
-    r"^VoiceInput-Setup-(?P<version>\d+\.\d+\.\d+)\.exe$",
+    r"^(?:Rechka|VoiceInput)-Setup-(?P<version>\d+\.\d+\.\d+)\.exe$",
     re.IGNORECASE,
 )
 SHA256_PATTERN = re.compile(r"^sha256:(?P<digest>[a-fA-F0-9]{64})$")
@@ -86,17 +86,23 @@ def update_from_release_payload(
     if not isinstance(assets, list):
         raise UpdateError("В релизе отсутствует установщик.")
 
-    expected_name = f"VoiceInput-Setup-{version}.exe".lower()
+    expected_names = (
+        f"Rechka-Setup-{version}.exe".lower(),
+        f"VoiceInput-Setup-{version}.exe".lower(),
+    )
     selected: dict[str, Any] | None = None
-    for item in assets:
-        if not isinstance(item, dict):
-            continue
-        if str(item.get("name", "")).lower() == expected_name:
-            selected = item
+    for expected_name in expected_names:
+        for item in assets:
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("name", "")).lower() == expected_name:
+                selected = item
+                break
+        if selected is not None:
             break
 
     if selected is None:
-        raise UpdateError(f"В релизе нет файла VoiceInput-Setup-{version}.exe.")
+        raise UpdateError(f"В релизе нет файла Rechka-Setup-{version}.exe.")
 
     name = str(selected.get("name", ""))
     if Path(name).name != name or not INSTALLER_PATTERN.fullmatch(name):
@@ -151,7 +157,7 @@ def check_for_update(repository: str, current_version: str) -> UpdateInfo | None
             f"{GITHUB_API}/repos/{repository}/releases/latest",
             headers=headers,
             timeout=timeout,
-            follow_redirects=False,
+            follow_redirects=True,
         )
         response.raise_for_status()
         payload = response.json()
@@ -179,9 +185,10 @@ def download_update(
     destination_dir.mkdir(parents=True, exist_ok=True)
     destination = destination_dir / update.asset.name
     partial = destination.with_suffix(destination.suffix + ".part")
-    for candidate in destination_dir.glob("VoiceInput-Setup-*.exe*"):
-        if candidate not in {destination, partial} and candidate.is_file():
-            candidate.unlink(missing_ok=True)
+    for installer_glob in ("Rechka-Setup-*.exe*", "VoiceInput-Setup-*.exe*"):
+        for candidate in destination_dir.glob(installer_glob):
+            if candidate not in {destination, partial} and candidate.is_file():
+                candidate.unlink(missing_ok=True)
 
     if destination.exists():
         if (

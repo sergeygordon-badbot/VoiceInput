@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (  # noqa: E402
     QWidget,
 )
 
+from voice_input import __version__  # noqa: E402
 from voice_input.app import (  # noqa: E402
     ACID,
     RECORD,
@@ -93,10 +94,21 @@ def render(output_dir: Path) -> dict[str, object]:
 
         def capture(name: str) -> None:
             qt.processEvents()
-            target = output_dir / f"ui-0.6.0-{name}.png"
+            target = output_dir / f"ui-{__version__}-{name}.png"
             if not app.window.grab().save(str(target), "PNG"):
                 raise RuntimeError(f"Не удалось сохранить {target}")
             screenshots[name] = str(target.resolve())
+
+        def capture_overlay(name: str) -> dict[str, int]:
+            qt.processEvents()
+            target = output_dir / f"ui-{__version__}-{name}.png"
+            if not app.overlay.grab().save(str(target), "PNG"):
+                raise RuntimeError(f"Не удалось сохранить {target}")
+            screenshots[name] = str(target.resolve())
+            return {
+                "width": app.overlay.width(),
+                "height": app.overlay.height(),
+            }
 
         capture("onboarding")
         app.tabs.setCurrentIndex(0)
@@ -114,6 +126,22 @@ def render(output_dir: Path) -> dict[str, object]:
         for level in (0.04, 0.08, 0.16, 0.28, 0.18, 0.34):
             app.main_voice_level.set_level(level)
         capture("recording-state")
+        app.overlay_elapsed.setText("00:18")
+        app.overlay_audio_state.setText("Голос слышу · звук записывается")
+        app._show_overlay(
+            "Общение · идёт запись",
+            RECORD,
+        )
+        overlay_geometry = capture_overlay("recording-overlay")
+        if not app.overlay_preview.isHidden():
+            raise RuntimeError("Пустой живой черновик занимает место в плашке")
+        app._set_overlay_preview(
+            "Проверяю микрофон: этот аккуратный живой черновик появляется "
+            "только после распознавания речи."
+        )
+        app._position_overlay()
+        preview_overlay_geometry = capture_overlay("recording-overlay-preview")
+        app.overlay.hide()
         app.state = "ready"
         app._set_main_recording_feedback(False)
         app._set_status("Готово к диктовке", SUCCESS)
@@ -278,6 +306,24 @@ def render(output_dir: Path) -> dict[str, object]:
             raise RuntimeError("Поле результата не растёт вместе с текстом")
         if capped_result_height > 410:
             raise RuntimeError("Поле результата превысило безопасную высоту")
+        if app.config.hotkey != "Ctrl+Space":
+            raise RuntimeError("Горячая клавиша по умолчанию должна быть Ctrl+Space")
+        if app.config.model != "base" or app.config.decoding_mode != "balanced":
+            raise RuntimeError("Профиль по умолчанию должен быть Base + Баланс")
+        if "Гастроконсьерж" in app.custom_terms_edit.placeholderText():
+            raise RuntimeError("В подсказке словаря осталось название другого проекта")
+        if overlay_geometry["height"] > 150:
+            raise RuntimeError("Плашка записи осталась слишком высокой")
+        if (
+            preview_overlay_geometry["height"] <= overlay_geometry["height"]
+            or preview_overlay_geometry["height"] > 200
+        ):
+            raise RuntimeError(
+                "Живой черновик имеет неправильную высоту: "
+                f"{preview_overlay_geometry}"
+            )
+        if not isinstance(app.overlay_preview, QLabel):
+            raise RuntimeError("Живой черновик должен быть лёгкой текстовой строкой")
 
         result = {
             "window": {
@@ -301,6 +347,15 @@ def render(output_dir: Path) -> dict[str, object]:
                 "expanded_result_height": expanded_result_height,
                 "capped_result_height": capped_result_height,
             },
+            "recording_overlay": overlay_geometry,
+            "recording_overlay_with_preview": preview_overlay_geometry,
+            "default_hotkey": app.config.hotkey,
+            "default_recognition_profile": {
+                "model": app.config.model,
+                "decoding_mode": app.config.decoding_mode,
+            },
+            "recording_hotkey_hint": app.overlay_hint.text(),
+            "custom_terms_placeholder": app.custom_terms_edit.placeholderText(),
             "microphone_wheel_safe": (
                 isinstance(app.device_combo, ScrollSafeComboBox)
                 and wheel_probe.ignored
@@ -315,7 +370,7 @@ def main() -> int:
     parser.add_argument("output_dir", type=Path)
     args = parser.parse_args()
     result = render(args.output_dir.resolve())
-    report = args.output_dir.resolve() / "ui-0.6.0-report.json"
+    report = args.output_dir.resolve() / f"ui-{__version__}-report.json"
     report.write_text(
         json.dumps(result, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",

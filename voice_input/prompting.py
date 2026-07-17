@@ -23,6 +23,89 @@ class ProcessedText:
     note: str = ""
 
 
+_QUESTION_START = re.compile(
+    r"^(?:(?:а|и|ну)\s+)?(?:"
+    r"кто|что|где|куда|откуда|когда|почему|зачем|"
+    r"ка(?:кой|кая|кое|кие|кого|кому|ким|ких|кими)|"
+    r"котор(?:ый|ая|ое|ые|ого|ому|ым|ых|ыми)|"
+    r"ч(?:ей|ья|ьё|ьи|ьего|ьему|ьим|ьих|ьими)|"
+    r"сколько|"
+    r"можно\s+ли|нужно\s+ли|стоит\s+ли|есть\s+ли|"
+    r"будет\s+ли|будут\s+ли|правда\s+ли|верно\s+ли|правильно\s+ли|"
+    r"готов(?:а|ы)?\s+ли|получил(?:а|и)?\s+ли|"
+    r"разве|неужели|"
+    r"(?:ты\s+)?можешь|(?:вы\s+)?можете|сможешь|сможете|"
+    r"ты\s+знаешь|вы\s+знаете|"
+    r"у\s+(?:тебя|вас|него|неё|нее|них)\s+есть|"
+    r"могу\s+ли|можем\s+ли|"
+    r"не\s+мог(?:ли|ла|ло)\s+бы|"
+    r"не\s+подскаж(?:ешь|ете)|"
+    r"подскажи(?:те)?|скажи(?:те)?|объясни(?:те)?"
+    r")\b",
+    flags=re.IGNORECASE,
+)
+_HOW_QUESTION_START = re.compile(
+    r"^(?:(?:а|и|ну)\s+)?как\s+(?:"
+    r"мне|нам|вам|тебе|ему|ей|им|это|же|бы|можно|нужно|лучше|правильно|"
+    r"сделать|настроить|узнать|найти|понять|проверить|исправить|добавить|"
+    r"открыть|запустить|работает|работают|происходит"
+    r")\b",
+    flags=re.IGNORECASE,
+)
+
+
+def _looks_like_direct_question(text: str) -> bool:
+    candidate = text.strip(" \t\n\r—–-«»\"'()[]")
+    return bool(
+        _QUESTION_START.match(candidate)
+        or _HOW_QUESTION_START.match(candidate)
+    )
+
+
+def improve_communication_punctuation(text: str) -> str:
+    """Polish obvious questions and Russian dashes without guessing semantics."""
+    polished = text.strip()
+    if not polished:
+        return ""
+
+    polished = re.sub(r"(?<=\S)[ \t]+-[ \t]+(?=\S)", " — ", polished)
+    polished = re.sub(r"(?<=\S)[ \t]*—[ \t]*(?=\S)", " — ", polished)
+    polished = re.sub(r"(?m)^[ \t]*—[ \t]*", "— ", polished)
+    polished = re.sub(
+        r"\b(подскажи(?:те)?|скажи(?:те)?|объясни(?:те)?)"
+        r"\s*,?\s+пожалуйста\b[ \t]*,?[ \t]*",
+        r"\1, пожалуйста, ",
+        polished,
+        flags=re.IGNORECASE,
+    )
+    polished = re.sub(
+        r"(?m)^пожалуйста\s+(?=(?:подскажи(?:те)?|скажи(?:те)?|объясни(?:те)?))",
+        "Пожалуйста, ",
+        polished,
+        flags=re.IGNORECASE,
+    )
+
+    parts = re.split(r"([.!?…]+)", polished)
+    for index in range(0, len(parts), 2):
+        sentence = parts[index]
+        if not _looks_like_direct_question(sentence):
+            continue
+        ending_index = index + 1
+        if ending_index >= len(parts):
+            parts[index] = sentence.rstrip() + "?"
+        elif parts[ending_index] == ".":
+            parts[ending_index] = "?"
+
+    polished = "".join(parts).strip()
+    if (
+        polished
+        and polished[-1] not in ".!?…:;—"
+        and len(re.findall(r"\b[\wЁёА-Яа-я-]+\b", polished)) >= 2
+    ):
+        polished += "?" if _looks_like_direct_question(polished) else "."
+    return polished
+
+
 def polish_communication_text(text: str) -> str:
     """Apply only conservative edits that do not rewrite the user's meaning."""
     polished = text.strip()
@@ -48,7 +131,7 @@ def polish_communication_text(text: str) -> str:
                 + polished[index + 1 :]
             )
             break
-    return polished.strip()
+    return improve_communication_punctuation(polished)
 
 
 def build_prompt_fallback(
@@ -106,6 +189,8 @@ def polish_communication_with_ollama(text: str, model: str) -> str:
         "Ты аккуратный редактор русской устной речи. Преврати расшифровку в "
         "естественный текст для общения. Сохрани исходный смысл, тон, факты, "
         "названия и степень уверенности. Исправь пунктуацию, явные оговорки, "
+        "сохрани вопросы вопросами со знаком вопроса и используй русское тире "
+        "там, где оно требуется по смыслу. "
         "слова-паразиты, случайные повторы и самокоррекции говорящего. Если "
         "человек сначала сказал один вариант, а затем явно заменил или исправил "
         "его, оставь только итоговый вариант. Не сокращай идеи, не улучшай их "
@@ -286,7 +371,7 @@ def process_transcript(
                     ollama_model.strip() or "qwen3:4b",
                 )
                 return ProcessedText(
-                    text=polished,
+                    text=improve_communication_punctuation(polished),
                     used_local_ai=True,
                     note="Формулировка аккуратно исправлена локальной AI",
                 )

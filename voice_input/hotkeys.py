@@ -75,6 +75,7 @@ KEY_LABELS = {
 }
 
 LEGACY_HOTKEYS = {
+    "ctrl_space": "Ctrl+Space",
     "ctrl_alt_space": "Ctrl+Alt+Space",
     "ctrl_shift_space": "Ctrl+Shift+Space",
     "ctrl_alt_f8": "Ctrl+Alt+F8",
@@ -82,6 +83,7 @@ LEGACY_HOTKEYS = {
 }
 
 HOTKEY_OPTIONS = {
+    "Ctrl+Space": "Ctrl + Пробел",
     "Ctrl+Alt+Space": "Ctrl + Alt + Пробел",
     "Ctrl+Shift+Space": "Ctrl + Shift + Пробел",
     "Ctrl+Alt+F8": "Ctrl + Alt + F8",
@@ -159,7 +161,7 @@ def parse_hotkey(value: str, *, allow_unmodified: bool = False) -> HotkeySpec:
     )
 
 
-def normalize_hotkey(value: str, fallback: str = "Ctrl+Alt+Space") -> str:
+def normalize_hotkey(value: str, fallback: str = "Ctrl+Space") -> str:
     try:
         return parse_hotkey(value).canonical
     except (TypeError, ValueError):

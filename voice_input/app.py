@@ -17,7 +17,6 @@ from PySide6.QtGui import (
     QKeySequence,
     QPainter,
     QPixmap,
-    QTextCursor,
 )
 from PySide6.QtWidgets import (
     QApplication,
@@ -70,6 +69,7 @@ from .config import (
 )
 from .engine import (
     WhisperEngine,
+    is_reliable_preview_text,
     merge_incremental_transcript,
     normalize_transcript,
 )
@@ -267,19 +267,16 @@ class VoiceInputApp:
         self.events: queue.Queue[tuple[str, Any]] = queue.Queue()
         self.recorder = AudioRecorder()
         self.engine = WhisperEngine()
-        self.preview_engine = WhisperEngine(cpu_threads=4, device_preference="cpu")
         self.hotkey = GlobalHotkey()
         self.cancel_hotkey = GlobalHotkey()
         self._registered_hotkey: str | None = None
         self.state = "loading"
         self._closing = False
         self._model_generation = 0
-        self._preview_model_loading = False
-        self._preview_ready = False
         self._recording_session = 0
         self._preview_stop: threading.Event | None = None
-        self._recording_started_at = 0.0
         self._latest_preview_text = ""
+        self._recording_started_at = 0.0
         self._recording_warning = ""
         self._recording_target_window = 0
         self._last_insertion_window = 0
@@ -941,7 +938,7 @@ class VoiceInputApp:
 
         self.custom_terms_edit = QLineEdit()
         self.custom_terms_edit.setPlaceholderText(
-            "Например: Codex, PostgreSQL, Гастроконсьерж"
+            "Например: Codex, PostgreSQL, название компании"
         )
         self.custom_terms_edit.setToolTip(
             "Можно указать варианты распознавания: PostgreSQL = постгрес | пост грес"
@@ -1380,23 +1377,20 @@ class VoiceInputApp:
         self.voice_level = VoiceLevelWidget()
         layout.addWidget(self.voice_level)
 
-        self.overlay_preview = QTextEdit()
-        self.overlay_preview.setReadOnly(True)
-        self.overlay_preview.setAcceptRichText(False)
-        self.overlay_preview.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.overlay_preview.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        self.overlay_preview = QLabel()
+        self.overlay_preview.setObjectName("livePreview")
+        self.overlay_preview.setWordWrap(False)
+        self.overlay_preview.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         )
-        self.overlay_preview.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        self.overlay_preview.setFixedHeight(92)
+        self.overlay_preview.setFixedHeight(36)
         self.overlay_preview.setStyleSheet(
-            f"color: {TEXT}; font-size: 9.5pt; border: 1px solid {BORDER}; "
-            f"background: {CARD_LIGHT}; border-radius: 8px; padding: 7px; "
-            "selection-background-color: transparent;"
+            f"color: {TEXT}; font-size: 9.5pt; border: 0; "
+            "background: transparent; padding: 0;"
         )
+        self.overlay_preview.hide()
         layout.addWidget(self.overlay_preview)
+
         self.overlay_hint = QLabel(
             f"{hotkey_label(self.config.hotkey)} — закончить · Esc — отменить"
         )
@@ -1405,7 +1399,6 @@ class VoiceInputApp:
             f"color: {MUTED}; font-size: 8pt; border: 0;"
         )
         layout.addWidget(self.overlay_hint)
-        self._set_overlay_preview("Черновик появится через несколько секунд.")
         self.overlay.hide()
 
     def _position_overlay(self) -> None:
@@ -1422,26 +1415,50 @@ class VoiceInputApp:
         self,
         text: str,
         color: str,
-        preview: str | None = None,
     ) -> None:
         self.overlay_state_text.setText(text)
         self.overlay_dot.setStyleSheet(f"color: {color}; font-size: 10pt; border: 0;")
-        if preview is not None:
-            self._set_overlay_preview(preview)
         self._position_overlay()
         self.overlay.show()
         self.overlay.raise_()
 
     def _set_overlay_preview(self, text: str) -> None:
-        self.overlay_preview.setPlainText(text)
-        self.overlay_preview.moveCursor(QTextCursor.MoveOperation.End)
-        self.overlay_preview.ensureCursorVisible()
-        scrollbar = self.overlay_preview.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
-        QTimer.singleShot(
-            0,
-            lambda: scrollbar.setValue(scrollbar.maximum()),
-        )
+        clean = " ".join(text.split())
+        if not clean:
+            self.overlay_preview.clear()
+            self.overlay_preview.hide()
+            return
+
+        words = clean.split()
+        available_width = max(280, self.overlay.width() - 30)
+        metrics = self.overlay_preview.fontMetrics()
+        lines: list[str] = []
+        cursor = len(words)
+        for _line_number in range(2):
+            if cursor <= 0:
+                break
+            start = cursor - 1
+            while start > 0:
+                candidate = " ".join(words[start - 1 : cursor])
+                if metrics.horizontalAdvance(candidate) > available_width:
+                    break
+                start -= 1
+            lines.append(" ".join(words[start:cursor]))
+            cursor = start
+        lines.reverse()
+
+        if cursor > 0 and lines:
+            first_words = lines[0].split()
+            while (
+                len(first_words) > 1
+                and metrics.horizontalAdvance(f"… {' '.join(first_words)}")
+                > available_width
+            ):
+                first_words.pop(0)
+            lines[0] = f"… {' '.join(first_words)}"
+
+        self.overlay_preview.setText("\n".join(lines))
+        self.overlay_preview.show()
 
     def _make_icon(self, color: str) -> QIcon:
         pixmap = QPixmap(64, 64)
@@ -1848,24 +1865,6 @@ class VoiceInputApp:
 
         threading.Thread(target=worker, name="model-loader", daemon=True).start()
 
-    def _load_preview_model(self) -> None:
-        if self._preview_ready or self._preview_model_loading or self._closing:
-            return
-        self._preview_model_loading = True
-
-        def worker() -> None:
-            try:
-                self.preview_engine.load("tiny")
-                self.events.put(("preview_model_ready", None))
-            except Exception as exc:
-                self.events.put(("preview_model_error", str(exc)))
-
-        threading.Thread(
-            target=worker,
-            name="preview-model-loader",
-            daemon=True,
-        ).start()
-
     def _set_status(self, text: str, color: str = MUTED) -> None:
         self.status_label.setText(text)
         display_color = "#D8D8D2" if color in {MUTED, ACCENT} else color
@@ -1925,8 +1924,8 @@ class VoiceInputApp:
         self._active_application_name = application_name
         self._active_custom_instruction = self.config.custom_instruction
         self._preview_stop = threading.Event()
-        self._recording_started_at = time.monotonic()
         self._latest_preview_text = ""
+        self._recording_started_at = time.monotonic()
         self._recording_warning = ""
         self.state = "recording"
         self._set_main_recording_feedback(True)
@@ -1941,6 +1940,7 @@ class VoiceInputApp:
         self.mode_combo.setEnabled(False)
         self.target_combo.setEnabled(False)
         self.voice_level.reset()
+        self._set_overlay_preview("")
         self.overlay_elapsed.setText("00:00")
         self.overlay_audio_state.setText("Микрофон подключён · начинайте говорить")
         self.overlay_audio_state.setStyleSheet(
@@ -1949,11 +1949,6 @@ class VoiceInputApp:
         self._show_overlay(
             f"{mode_name} · идёт запись",
             RECORD,
-            (
-                "Черновик появится через 2–4 секунды."
-                if self._preview_ready
-                else "Подготавливаю быстрый черновик — запись уже идёт."
-            ),
         )
         self._set_tray_color(RECORD)
         self._start_cancel_hotkey()
@@ -2005,11 +2000,11 @@ class VoiceInputApp:
         self.record_button.setText("Распознавание…")
         self.record_button.setEnabled(False)
         self._style_primary_button(self.record_button, ACID)
+        self._set_overlay_preview("")
         self.overlay_audio_state.setText("Запись завершена · обрабатываю результат")
         self._show_overlay(
             "Финальная расшифровка началась…",
             ACCENT,
-            self._latest_preview_text or "Обрабатываю записанную фразу…",
         )
         self.voice_level.set_level(0.0)
         self._set_tray_color(ACCENT)
@@ -2050,19 +2045,15 @@ class VoiceInputApp:
         committed_samples = 0
         stable_text = ""
         last_preview_total = 0
-        minimum_first_samples = round(2.8 * 16_000)
-        minimum_new_samples = round(1.6 * 16_000)
+        minimum_first_samples = round(3.0 * 16_000)
+        minimum_new_samples = round(2.8 * 16_000)
         overlap_samples = round(1.2 * 16_000)
         maximum_window_samples = round(12.0 * 16_000)
-        stability_margin_seconds = 0.85
-        if stop_event.wait(0.45):
+        stability_margin_seconds = 0.9
+
+        if stop_event.wait(0.5):
             return
         while not stop_event.is_set():
-            if not self._preview_ready:
-                if stop_event.wait(0.25):
-                    return
-                continue
-
             total_samples = self.recorder.sample_count
             enough_audio = total_samples >= minimum_first_samples
             enough_new_audio = (
@@ -2075,29 +2066,29 @@ class VoiceInputApp:
                     total_samples - maximum_window_samples,
                 )
                 clip = self.recorder.snapshot(start_sample=start_sample)
+                last_preview_total = total_samples
                 if not has_recordable_signal(clip.samples):
-                    last_preview_total = total_samples
-                    if stop_event.wait(0.2):
+                    if stop_event.wait(0.25):
                         return
                     continue
                 try:
-                    segments = self.preview_engine.transcribe_segments(
+                    segments = self.engine.transcribe_segments(
                         clip.samples,
                         language=self._active_language,
                         beam_size=1,
                         custom_terms=self._active_custom_terms,
                         preview=True,
                     )
-                except Exception as exc:
-                    self.events.put(("preview_error", (session, str(exc))))
+                except Exception:
                     return
                 if stop_event.is_set():
                     return
+
                 current_text = normalize_transcript(
                     " ".join(segment.text for segment in segments),
                     punctuation_commands=self.config.punctuation_commands,
                 )
-                if current_text:
+                if is_reliable_preview_text(current_text):
                     visible_text = merge_incremental_transcript(
                         stable_text,
                         current_text,
@@ -2118,16 +2109,16 @@ class VoiceInputApp:
                         " ".join(segment.text for segment in stable_segments),
                         punctuation_commands=self.config.punctuation_commands,
                     )
-                    stable_text = merge_incremental_transcript(
-                        stable_text,
-                        stable_part,
-                    )
-                    committed_samples = min(
-                        total_samples,
-                        clip.start_sample
-                        + round(stable_segments[-1].end * 16_000),
-                    )
-                last_preview_total = total_samples
+                    if is_reliable_preview_text(stable_part):
+                        stable_text = merge_incremental_transcript(
+                            stable_text,
+                            stable_part,
+                        )
+                        committed_samples = min(
+                            total_samples,
+                            clip.start_sample
+                            + round(stable_segments[-1].end * 16_000),
+                        )
             if stop_event.wait(0.3):
                 return
 
@@ -2346,10 +2337,10 @@ class VoiceInputApp:
 
     def _handle_error(self, text: str) -> None:
         self._stop_cancel_hotkey()
-        self.recorder.abort()
-        self._set_main_recording_feedback(False)
         if self._preview_stop is not None:
             self._preview_stop.set()
+        self.recorder.abort()
+        self._set_main_recording_feedback(False)
         self.overlay.hide()
         self.state = "ready" if self.engine.model_name else "error"
         self.record_button.setText(
@@ -2852,7 +2843,6 @@ class VoiceInputApp:
                     self._style_primary_button(self.record_button, ACID)
                     self._set_status("Готово к диктовке", SUCCESS)
                     self._set_tray_color(ACCENT)
-                    self._load_preview_model()
                     if not self.config.onboarding_complete and not self.start_minimized:
                         self.tabs.setCurrentIndex(1)
                         self.show_window()
@@ -2869,19 +2859,6 @@ class VoiceInputApp:
                     self._latest_preview_text = text
                     self._set_overlay_preview(text)
                     self._position_overlay()
-            elif event == "preview_error":
-                session, _text = payload
-                if session == self._recording_session and self.state == "recording":
-                    self._set_overlay_preview(
-                        "Запись продолжается. Живой черновик временно недоступен, "
-                        "финальная расшифровка всё равно будет выполнена."
-                    )
-            elif event == "preview_model_ready":
-                self._preview_model_loading = False
-                self._preview_ready = True
-            elif event == "preview_model_error":
-                self._preview_model_loading = False
-                self._preview_ready = False
             elif event == "microphone_test_result":
                 self._handle_microphone_test_result(payload)
             elif event == "microphone_test_error":

@@ -8,13 +8,24 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlparse
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from voice_input import __version__  # noqa: E402
+
+
 SITE_ROOT = PROJECT_ROOT / "site"
 LANDING_ROOT = SITE_ROOT / "rechka"
 LANDING_HTML = LANDING_ROOT / "index.html"
 LANDING_SITEMAP = LANDING_ROOT / "sitemap.xml"
 EXPECTED_CANONICAL = "https://ebsf.ru/rechka/"
+EXPECTED_DOWNLOAD = (
+    "https://github.com/sergeygordon-badbot/Rechka/releases/download/"
+    f"v{__version__}/Rechka-Setup-{__version__}.exe"
+)
+EXPECTED_FILE_SIZE_EN = "238 MB"
+EXPECTED_FILE_SIZE_RU = "238 МБ"
 
 
 class LandingParser(HTMLParser):
@@ -95,8 +106,9 @@ def fail(message: str) -> None:
 
 
 def main() -> int:
+    source = LANDING_HTML.read_text(encoding="utf-8")
     parser = LandingParser()
-    parser.feed(LANDING_HTML.read_text(encoding="utf-8"))
+    parser.feed(source)
     errors: list[str] = []
 
     title = " ".join("".join(parser.title_parts).split())
@@ -141,6 +153,7 @@ def main() -> int:
         errors.append(f"Некорректный canonical: {parser.canonicals!r}")
 
     structured_types: set[str] = set()
+    software_payload: dict[str, object] | None = None
     for index, block in enumerate(parser.json_ld_blocks, start=1):
         try:
             payload = json.loads(block)
@@ -150,6 +163,8 @@ def main() -> int:
         value = payload.get("@type")
         if isinstance(value, str):
             structured_types.add(value)
+            if value == "SoftwareApplication":
+                software_payload = payload
         elif isinstance(value, list):
             structured_types.update(item for item in value if isinstance(item, str))
 
@@ -159,6 +174,32 @@ def main() -> int:
         errors.append(
             f"Нет обязательных типов JSON-LD: {', '.join(missing_types)}"
         )
+    if software_payload is not None:
+        expected_values = {
+            "softwareVersion": __version__,
+            "fileSize": EXPECTED_FILE_SIZE_EN,
+            "downloadUrl": EXPECTED_DOWNLOAD,
+        }
+        for key, expected in expected_values.items():
+            if software_payload.get(key) != expected:
+                errors.append(
+                    f"JSON-LD {key}: ожидалось {expected!r}, "
+                    f"получено {software_payload.get(key)!r}"
+                )
+
+    if source.count(EXPECTED_DOWNLOAD) != 4:
+        errors.append(
+            "Ссылка актуального установщика должна встречаться четыре раза"
+        )
+    required_release_texts = (
+        f"Речка {__version__}",
+        EXPECTED_FILE_SIZE_RU,
+        "Ctrl + Пробел",
+        "Whisper Base",
+    )
+    for text in required_release_texts:
+        if text not in source:
+            errors.append(f"На лендинге отсутствует актуальное значение: {text}")
 
     try:
         sitemap = ET.parse(LANDING_SITEMAP)

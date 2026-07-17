@@ -24,6 +24,11 @@ if ($LASTEXITCODE -ne 0) {
     throw "License collection failed with exit code $LASTEXITCODE."
 }
 
+& $python (Join-Path $PSScriptRoot "tools\write_windows_version_info.py")
+if ($LASTEXITCODE -ne 0) {
+    throw "Windows version metadata generation failed with exit code $LASTEXITCODE."
+}
+
 $distName = if ($OutputName) { $OutputName } else { "VoiceInput-$version" }
 if ([IO.Path]::GetFileName($distName) -ne $distName) {
     throw "OutputName must be a single directory name."
@@ -31,6 +36,7 @@ if ([IO.Path]::GetFileName($distName) -ne $distName) {
 $workPath = Join-Path $PSScriptRoot "build\$distName-work"
 $distPath = Join-Path $PSScriptRoot "dist\$distName"
 $iconPath = Join-Path $PSScriptRoot "assets\voiceinput.ico"
+$versionFile = Join-Path $PSScriptRoot "build\Rechka.version.txt"
 
 function Remove-PreviousBuildDirectory {
     param([Parameter(Mandatory = $true)][string]$LiteralPath)
@@ -52,6 +58,15 @@ function Remove-PreviousBuildDirectory {
     Get-ChildItem -LiteralPath $resolved -Recurse -Force -File |
         Where-Object { $_.IsReadOnly } |
         ForEach-Object { $_.IsReadOnly = $false }
+    Get-ChildItem -LiteralPath $resolved -Recurse -Force -Directory |
+        Where-Object {
+            ($_.Attributes -band [IO.FileAttributes]::ReadOnly) -ne 0
+        } |
+        ForEach-Object {
+            $_.Attributes = (
+                $_.Attributes -band (-bnot [IO.FileAttributes]::ReadOnly)
+            )
+        }
     Remove-Item -LiteralPath $resolved -Recurse -Force
 }
 
@@ -64,6 +79,7 @@ Remove-PreviousBuildDirectory -LiteralPath $distPath
     --onedir `
     --name Rechka `
     --icon $iconPath `
+    --version-file $versionFile `
     --workpath $workPath `
     --distpath $distPath `
     --collect-all faster_whisper `
@@ -74,7 +90,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $target = Join-Path $distPath "Rechka"
-foreach ($modelName in @("tiny", "base")) {
+foreach ($modelName in @("base")) {
     $modelSource = Join-Path $PSScriptRoot "models\faster-whisper-$modelName"
     $modelTarget = Join-Path $target "models\faster-whisper-$modelName"
     if (-not (Test-Path -LiteralPath $modelSource)) {

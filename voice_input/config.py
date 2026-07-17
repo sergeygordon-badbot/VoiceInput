@@ -110,13 +110,13 @@ INSERTION_OPTIONS = {
 @dataclass(slots=True)
 class AppConfig:
     model: str = "base"
-    decoding_mode: str = "fast"
+    decoding_mode: str = "balanced"
     output_mode: str = "communication"
     ai_target: str = "universal"
     language: str = "ru"
     device_index: int | None = None
     insertion_mode: str = "paste"
-    hotkey: str = "Ctrl+Alt+Space"
+    hotkey: str = "Ctrl+Space"
     append_space: bool = True
     punctuation_commands: bool = True
     start_minimized: bool = False
@@ -130,9 +130,9 @@ class AppConfig:
     history_enabled: bool = False
     use_local_ai: bool = False
     ollama_model: str = "qwen3:4b"
-    beam_size: int = 1
+    beam_size: int = 2
     onboarding_complete: bool = False
-    settings_revision: int = 3
+    settings_revision: int = 5
 
 
 def data_dir() -> Path:
@@ -182,6 +182,8 @@ def load_config() -> AppConfig:
     except (TypeError, ValueError):
         settings_revision = 0
     is_performance_legacy = settings_revision < 2
+    is_hotkey_legacy = settings_revision < 4
+    is_decoding_legacy = settings_revision < 5
     is_existing_before_onboarding = "onboarding_complete" not in payload
     config = AppConfig(**clean)
 
@@ -192,7 +194,9 @@ def load_config() -> AppConfig:
     ) and config.model in {"medium", "turbo"}:
         config.model = "base"
     if config.decoding_mode not in DECODING_OPTIONS:
-        config.decoding_mode = "fast"
+        config.decoding_mode = "balanced"
+    elif is_decoding_legacy and config.decoding_mode == "fast":
+        config.decoding_mode = "balanced"
     if config.output_mode not in OUTPUT_MODE_OPTIONS:
         config.output_mode = "communication"
     if config.ai_target not in AI_TARGET_OPTIONS:
@@ -202,11 +206,13 @@ def load_config() -> AppConfig:
     if config.insertion_mode not in INSERTION_OPTIONS:
         config.insertion_mode = "paste"
     config.hotkey = normalize_hotkey(config.hotkey)
+    if is_hotkey_legacy and config.hotkey == "Ctrl+Alt+Space":
+        config.hotkey = "Ctrl+Space"
     if is_performance_legacy:
         config.use_local_ai = False
     if is_existing_before_onboarding:
         config.onboarding_complete = True
-    config.settings_revision = 3
+    config.settings_revision = 5
     config.beam_size = DECODING_BEAM_SIZES[config.decoding_mode]
     return config
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 import os
 import stat
+import sys
 import time
 import urllib.request
 from importlib import metadata
@@ -12,6 +13,12 @@ from urllib.parse import quote
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from voice_input import __version__
+
+
 OUTPUT = ROOT / "build" / "runtime-licenses"
 RUNTIME_DISTRIBUTIONS = (
     "PySide6",
@@ -60,7 +67,7 @@ def _download_qt_license(path: str) -> str:
     )
     headers = {
         "Accept": "application/vnd.github.raw+json",
-        "User-Agent": "Rechka-License-Collector/0.6.0",
+        "User-Agent": f"Rechka-License-Collector/{__version__}",
         "X-GitHub-Api-Version": "2022-11-28",
     }
     token = os.environ.get("GITHUB_TOKEN", "").strip()

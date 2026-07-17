@@ -100,9 +100,13 @@ if ($LASTEXITCODE -ne 0) {
     throw "Installer compilation failed."
 }
 
-$output = Join-Path $PSScriptRoot "dist\installer\VoiceInput-Setup-$version.exe"
+$output = Join-Path $PSScriptRoot "dist\installer\Rechka-Setup-$version.exe"
 if (-not (Test-Path -LiteralPath $output)) {
     throw "Installer output was not created."
 }
 
+$legacyOutput = Join-Path $PSScriptRoot "dist\installer\VoiceInput-Setup-$version.exe"
+Copy-Item -LiteralPath $output -Destination $legacyOutput -Force
+
 Write-Host "Built: $output"
+Write-Host "Compatibility copy for updates from older versions: $legacyOutput"

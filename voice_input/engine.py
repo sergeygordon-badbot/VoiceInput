@@ -170,6 +170,10 @@ def apply_voice_commands(text: str) -> str:
     replacements = (
         (r"\bновый абзац\b", "\n\n"),
         (r"\bновая строка\b", "\n"),
+        (
+            r"\b(?:и\s+)?(?:поставь|поставить|ставь)\s+точку\s+с\s+запятой\b[.]?",
+            ";",
+        ),
         (r"\b(?:и\s+)?поставь точку\b[.]?", "."),
         (r"\b(?:и\s+)?поставь запятую\b[.]?", ","),
         (
@@ -183,10 +187,19 @@ def apply_voice_commands(text: str) -> str:
             "!",
         ),
         (r"\b(?:и\s+)?поставь двоеточие\b[.]?", ":"),
-        (r"\b(?:и\s+)?поставь точку с запятой\b[.]?", ";"),
+        (
+            r"\b(?:и\s+)?(?:поставь|поставить|ставь)\s+тире\b[.]?",
+            " ⟦DASH⟧ ",
+        ),
+        (
+            r"\b(?:и\s+)?(?:поставь|поставить|ставь)\s+дефис\b[.]?",
+            "⟦HYPHEN⟧",
+        ),
     )
     for pattern, replacement in replacements:
         text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+    text = re.sub(r"\s*⟦DASH⟧\s*", " — ", text)
+    text = re.sub(r"\s*⟦HYPHEN⟧\s*", "-", text)
     text = re.sub(r"([!?])\s*[.]", r"\1", text)
     return text
 
@@ -201,6 +214,8 @@ def normalize_transcript(text: str, punctuation_commands: bool = True) -> str:
         clean = re.sub(r"[ \t]+", " ", line).strip()
         clean = re.sub(r"\s+([,.;:!?])", r"\1", clean)
         clean = re.sub(r"([(\[«])\s+", r"\1", clean)
+        clean = re.sub(r"(?<=\S)[ \t]*—[ \t]*(?=\S)", " — ", clean)
+        clean = re.sub(r"^—[ \t]*", "— ", clean)
         for index, character in enumerate(clean):
             if character.isalpha():
                 clean = clean[:index] + character.upper() + clean[index + 1 :]
@@ -229,6 +244,32 @@ def merge_incremental_transcript(previous: str, current: str) -> str:
 
     merged = [*previous_words, *current_words[overlap:]]
     return normalize_transcript(" ".join(merged), punctuation_commands=False)
+
+
+def is_reliable_preview_text(text: str) -> bool:
+    """Hide obvious live-preview hallucinations without affecting final text."""
+    words = re.findall(
+        r"[0-9a-zа-яё]+(?:-[0-9a-zа-яё]+)?",
+        text.casefold(),
+        flags=re.IGNORECASE,
+    )
+    if not words or sum(character.isalpha() for character in text) < 3:
+        return False
+    if len(words) < 3:
+        return len("".join(words)) >= 4
+
+    if len(words) >= 8 and len(set(words)) / len(words) < 0.34:
+        return False
+
+    if len(words) >= 12:
+        bigrams = list(zip(words, words[1:]))
+        most_common_bigram = max(
+            (bigrams.count(bigram) for bigram in set(bigrams)),
+            default=0,
+        )
+        if most_common_bigram >= 4:
+            return False
+    return True
 
 
 def choose_chunk_length(sample_count: int, sample_rate: int = 16_000) -> int:

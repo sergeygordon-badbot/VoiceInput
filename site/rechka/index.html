@@ -27,17 +27,20 @@
     "alternateName": "Rechka",
     "applicationCategory": "UtilitiesApplication",
     "operatingSystem": "Windows 11 x64",
-    "softwareVersion": "0.6.0",
-    "fileSize": "306 MB",
+    "softwareVersion": "0.6.2",
+    "fileSize": "238 MB",
     "inLanguage": "ru",
     "isAccessibleForFree": true,
     "description": "Бесплатная программа для голосового ввода текста. Превращает русскую речь в готовые сообщения, документы и запросы к ИИ, распознавая голос на компьютере пользователя.",
-    "downloadUrl": "https://github.com/sergeygordon-badbot/Rechka/releases/download/v0.6.0/VoiceInput-Setup-0.6.0.exe",
+    "downloadUrl": "https://github.com/sergeygordon-badbot/Rechka/releases/download/v0.6.2/Rechka-Setup-0.6.2.exe",
     "url": "https://ebsf.ru/rechka/",
     "featureList": [
       "Голосовой ввод на русском языке",
-      "Локальное распознавание речи",
-      "Очистка явных повторов и оговорок",
+      "Локальное распознавание моделью Whisper Base",
+      "Живой черновик во время диктовки",
+      "Вопросительные знаки, тире и голосовые команды пунктуации",
+      "Очистка явных повторов, оговорок и речевого шума",
+      "Горячая клавиша Ctrl + Пробел",
       "Вставка текста в активное приложение",
       "Подготовка структурированных запросов для ИИ"
     ],
@@ -65,7 +68,7 @@
         <a href="#privacy">Приватность</a>
         <a href="#ebsf">О проекте</a>
       </nav>
-      <a class="top-download" href="https://github.com/sergeygordon-badbot/Rechka/releases/download/v0.6.0/VoiceInput-Setup-0.6.0.exe">
+      <a class="top-download" href="https://github.com/sergeygordon-badbot/Rechka/releases/download/v0.6.2/Rechka-Setup-0.6.2.exe">
         Скачать
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 16h12"/></svg>
       </a>
@@ -85,7 +88,7 @@
             уберёт лишнее и вставит готовый текст туда, где вы работаете.
           </p>
           <div class="hero-actions">
-            <a class="button button-dark" href="https://github.com/sergeygordon-badbot/Rechka/releases/download/v0.6.0/VoiceInput-Setup-0.6.0.exe">
+            <a class="button button-dark" href="https://github.com/sergeygordon-badbot/Rechka/releases/download/v0.6.2/Rechka-Setup-0.6.2.exe">
               Скачать бесплатно
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 16h12"/></svg>
             </a>
@@ -94,7 +97,7 @@
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 13 6-6M8 7h5v5"/></svg>
             </a>
           </div>
-          <p class="hero-meta">Windows 11 · версия 0.6.0 · 306 МБ · без регистрации</p>
+          <p class="hero-meta">Windows 11 · 0.6.2 · 238 МБ · Ctrl + Пробел</p>
         </div>
 
         <div class="product-demo" aria-label="Пример работы программы">
@@ -129,11 +132,11 @@
       </div>
       <div class="hero-steps">
         <div class="shell">
-          <div><span>01</span><b>Скажите как есть</b><small>Не подбирайте идеальные формулировки</small></div>
+          <div><span>01</span><b>Нажмите Ctrl + Пробел</b><small>Запись начнётся в любом активном приложении</small></div>
           <i></i>
-          <div><span>02</span><b>«Речка» соберёт мысль</b><small>Уберёт повторы, оговорки и лишние паузы</small></div>
+          <div><span>02</span><b>Говорите как есть</b><small>Компактный черновик покажет услышанную фразу</small></div>
           <i></i>
-          <div><span>03</span><b>Продолжайте работать</b><small>Текст появится в нужном приложении</small></div>
+          <div><span>03</span><b>Нажмите ещё раз</b><small>Готовый текст со знаками появится в активном поле</small></div>
         </div>
       </div>
     </section>
@@ -155,11 +158,11 @@
             <div class="card-result"><small>Останется в тексте</small><p>Давайте встретимся в пятницу после 14:00.</p></div>
           </article>
           <article class="benefit-card benefit-structure">
-            <div class="benefit-head"><span>02</span><b>Собирает структуру</b></div>
-            <p class="raw-copy">Продиктуйте задачу, список или длинную мысль обычными словами.</p>
+            <div class="benefit-head"><span>02</span><b>Показывает живой черновик</b></div>
+            <p class="raw-copy">Во время разговора видны последние распознанные слова — без большого пустого окна и отвлекающего текста.</p>
             <div class="structure-list">
-              <span><i></i> Цель</span><span><i></i> Контекст</span>
-              <span><i></i> Требования</span><span><i></i> Формат результата</span>
+              <span><i></i> До 2 строк</span><span><i></i> Base-модель</span>
+              <span><i></i> Без облака</span><span><i></i> Точный финал</span>
             </div>
           </article>
           <article class="benefit-card benefit-voice">
@@ -301,21 +304,23 @@
         <div class="download-card">
           <div class="download-card-head">
             <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-            <div><strong>Речка 0.6.0</strong><small>публичная бета</small></div>
+            <div><strong>Речка 0.6.2</strong><small>публичная бета</small></div>
           </div>
           <dl>
             <div><dt>Система</dt><dd>Windows 11 x64</dd></div>
-            <div><dt>Установщик</dt><dd>306 МБ</dd></div>
+            <div><dt>Установщик</dt><dd>238 МБ</dd></div>
+            <div><dt>Распознавание</dt><dd>Whisper Base · локально</dd></div>
+            <div><dt>Горячая клавиша</dt><dd>Ctrl + Пробел</dd></div>
             <div><dt>Регистрация</dt><dd>Не нужна</dd></div>
             <div><dt>Стоимость</dt><dd>Бесплатно</dd></div>
           </dl>
-          <a class="download-primary" href="https://github.com/sergeygordon-badbot/Rechka/releases/download/v0.6.0/VoiceInput-Setup-0.6.0.exe">
+          <a class="download-primary" href="https://github.com/sergeygordon-badbot/Rechka/releases/download/v0.6.2/Rechka-Setup-0.6.2.exe">
             Скачать установщик
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 16h12"/></svg>
           </a>
           <a class="download-source" href="https://github.com/sergeygordon-badbot/Rechka" target="_blank" rel="noopener">Посмотреть исходный код на GitHub</a>
           <small>
-            Модели распознавания уже находятся внутри установщика. Windows
+            Модель Whisper Base уже находится внутри установщика. Windows
             SmartScreen может показать предупреждение: публичная бета пока
             не подписана коммерческим сертификатом.
           </small>
