@@ -35,5 +35,8 @@ jobs:
       - name: Check landing SEO
         run: python tools/check_landing.py
 
+      - name: Check single version source
+        run: python tools/check_version_sources.py
+
       - name: Compile Python sources
         run: python -m compileall -q voice_input main.py tools tests

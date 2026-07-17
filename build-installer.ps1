@@ -23,10 +23,10 @@ if (-not $version) {
 $appDir = if ($AppBuildDir) {
     (Resolve-Path -LiteralPath $AppBuildDir).Path
 } else {
-    Join-Path $PSScriptRoot "dist\VoiceInput-$version\Rechka"
+    Join-Path $PSScriptRoot "dist\Rechka-$version\Rechka"
 }
 $appExe = Join-Path $appDir "Rechka.exe"
-$scriptFile = Join-Path $PSScriptRoot "installer\VoiceInput.iss"
+$scriptFile = Join-Path $PSScriptRoot "installer\Rechka.iss"
 
 if ($RebuildApp) {
     & (Join-Path $PSScriptRoot "build.ps1")
@@ -91,7 +91,7 @@ if ($null -eq $iscc) {
     throw "ISCC.exe was not found after preparing Inno Setup."
 }
 
-Write-Host "Building VoiceInput installer..."
+Write-Host "Building Rechka installer..."
 & $iscc.FullName `
     "/DMyAppVersion=$version" `
     "/DMyAppSourceDir=$appDir" `
@@ -105,8 +105,4 @@ if (-not (Test-Path -LiteralPath $output)) {
     throw "Installer output was not created."
 }
 
-$legacyOutput = Join-Path $PSScriptRoot "dist\installer\VoiceInput-Setup-$version.exe"
-Copy-Item -LiteralPath $output -Destination $legacyOutput -Force
-
 Write-Host "Built: $output"
-Write-Host "Compatibility copy for updates from older versions: $legacyOutput"

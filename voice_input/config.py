@@ -10,7 +10,8 @@ from typing import Any
 from .hotkeys import HOTKEY_OPTIONS, normalize_hotkey
 
 
-APP_DIR_NAME = "VoiceInput"
+APP_DIR_NAME = "Rechka"
+LEGACY_APP_DIR_NAME = "VoiceInput"
 
 RECOGNITION_MODE_OPTIONS = {
     "auto": "Авто — подобрать по компьютеру",
@@ -144,13 +145,24 @@ class AppConfig:
 
 
 def data_dir() -> Path:
-    override = os.environ.get("VOICE_INPUT_DATA_DIR")
+    override = os.environ.get("RECHKA_DATA_DIR") or os.environ.get(
+        "VOICE_INPUT_DATA_DIR"
+    )
     if override:
         return Path(override).expanduser().resolve()
 
     root = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
     if root:
-        return Path(root) / APP_DIR_NAME
+        target = Path(root) / APP_DIR_NAME
+        legacy = Path(root) / LEGACY_APP_DIR_NAME
+        if not target.exists() and legacy.is_dir():
+            try:
+                legacy.rename(target)
+            except OSError:
+                # Keep the existing settings available if Windows temporarily
+                # blocks the one-time directory migration.
+                return legacy
+        return target
     return Path.home() / f".{APP_DIR_NAME.lower()}"
 
 

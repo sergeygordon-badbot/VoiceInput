@@ -19,7 +19,7 @@
   <meta name="twitter:title" content="Речка — бесплатная программа для голосового ввода">
   <meta name="twitter:description" content="Скажите мысль своими словами — получите готовое сообщение, документ или запрос к ИИ.">
   <link rel="stylesheet" href="styles-v10.css">
-  <script type="application/ld+json">
+  <script id="software-schema" type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -27,12 +27,10 @@
     "alternateName": "Rechka",
     "applicationCategory": "UtilitiesApplication",
     "operatingSystem": "Windows 11 x64",
-    "softwareVersion": "0.6.2",
-    "fileSize": "241 MB",
     "inLanguage": "ru",
     "isAccessibleForFree": true,
     "description": "Бесплатная программа для голосового ввода текста. Превращает русскую речь в готовые сообщения, документы и запросы к ИИ, распознавая голос на компьютере пользователя.",
-    "downloadUrl": "https://github.com/sergeygordon-badbot/Rechka/releases/download/v0.6.2/Rechka-Setup-0.6.2.exe",
+    "downloadUrl": "https://github.com/sergeygordon-badbot/Rechka/releases/latest",
     "url": "https://ebsf.ru/rechka/",
     "featureList": [
       "Голосовой ввод на русском языке",
@@ -68,7 +66,7 @@
         <a href="#privacy">Приватность</a>
         <a href="#ebsf">О проекте</a>
       </nav>
-      <a class="top-download" href="https://github.com/sergeygordon-badbot/Rechka/releases/download/v0.6.2/Rechka-Setup-0.6.2.exe">
+      <a class="top-download" data-release-download href="https://github.com/sergeygordon-badbot/Rechka/releases/latest">
         Скачать
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 16h12"/></svg>
       </a>
@@ -88,7 +86,7 @@
             уберёт лишнее и вставит готовый текст туда, где вы работаете.
           </p>
           <div class="hero-actions">
-            <a class="button button-dark" href="https://github.com/sergeygordon-badbot/Rechka/releases/download/v0.6.2/Rechka-Setup-0.6.2.exe">
+            <a class="button button-dark" data-release-download href="https://github.com/sergeygordon-badbot/Rechka/releases/latest">
               Скачать бесплатно
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 16h12"/></svg>
             </a>
@@ -97,7 +95,7 @@
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 13 6-6M8 7h5v5"/></svg>
             </a>
           </div>
-          <p class="hero-meta">Windows 11 · 0.6.2 · 241 МБ · Ctrl + Пробел</p>
+          <p class="hero-meta">Windows 11 · <span data-release-version>актуальная версия</span> · <span data-release-size>размер на GitHub</span> · Ctrl + Пробел</p>
         </div>
 
         <div class="product-demo" aria-label="Пример работы программы">
@@ -304,17 +302,17 @@
         <div class="download-card">
           <div class="download-card-head">
             <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-            <div><strong>Речка 0.6.2</strong><small>публичная бета</small></div>
+            <div><strong>Речка <span data-release-version>актуальная версия</span></strong><small>публичная бета</small></div>
           </div>
           <dl>
             <div><dt>Система</dt><dd>Windows 11 x64</dd></div>
-            <div><dt>Установщик</dt><dd>241 МБ</dd></div>
+            <div><dt>Установщик</dt><dd data-release-size>размер на GitHub</dd></div>
             <div><dt>Распознавание</dt><dd>Whisper Base · локально</dd></div>
             <div><dt>Горячая клавиша</dt><dd>Ctrl + Пробел</dd></div>
             <div><dt>Регистрация</dt><dd>Не нужна</dd></div>
             <div><dt>Стоимость</dt><dd>Бесплатно</dd></div>
           </dl>
-          <a class="download-primary" href="https://github.com/sergeygordon-badbot/Rechka/releases/download/v0.6.2/Rechka-Setup-0.6.2.exe">
+          <a class="download-primary" data-release-download href="https://github.com/sergeygordon-badbot/Rechka/releases/latest">
             Скачать установщик
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 16h12"/></svg>
           </a>
@@ -343,6 +341,7 @@
       </div>
     </div>
   </footer>
+  <script src="release-v1.js"></script>
   <script src="motion-v5.js"></script>
 </body>
 </html>

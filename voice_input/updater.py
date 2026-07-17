@@ -22,7 +22,7 @@ REPOSITORY_PATTERN = re.compile(
     r"[A-Za-z0-9_.-]{1,100}$"
 )
 INSTALLER_PATTERN = re.compile(
-    r"^(?:Rechka|VoiceInput)-Setup-(?P<version>\d+\.\d+\.\d+)\.exe$",
+    r"^Rechka-Setup-(?P<version>\d+\.\d+\.\d+)\.exe$",
     re.IGNORECASE,
 )
 SHA256_PATTERN = re.compile(r"^sha256:(?P<digest>[a-fA-F0-9]{64})$")
@@ -50,7 +50,10 @@ class UpdateInfo:
 
 def configured_repository() -> str:
     """Read the public GitHub repository from an environment or bundled file."""
-    environment_value = os.environ.get("VOICE_INPUT_UPDATE_REPOSITORY", "").strip()
+    environment_value = (
+        os.environ.get("RECHKA_UPDATE_REPOSITORY")
+        or os.environ.get("VOICE_INPUT_UPDATE_REPOSITORY", "")
+    ).strip()
     if environment_value:
         return environment_value if REPOSITORY_PATTERN.fullmatch(environment_value) else ""
 
@@ -86,19 +89,13 @@ def update_from_release_payload(
     if not isinstance(assets, list):
         raise UpdateError("В релизе отсутствует установщик.")
 
-    expected_names = (
-        f"Rechka-Setup-{version}.exe".lower(),
-        f"VoiceInput-Setup-{version}.exe".lower(),
-    )
+    expected_name = f"Rechka-Setup-{version}.exe".lower()
     selected: dict[str, Any] | None = None
-    for expected_name in expected_names:
-        for item in assets:
-            if not isinstance(item, dict):
-                continue
-            if str(item.get("name", "")).lower() == expected_name:
-                selected = item
-                break
-        if selected is not None:
+    for item in assets:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("name", "")).lower() == expected_name:
+            selected = item
             break
 
     if selected is None:
@@ -150,7 +147,7 @@ def check_for_update(repository: str, current_version: str) -> UpdateInfo | None
         "Accept": "application/vnd.github+json",
         "Cache-Control": "no-cache",
         "Pragma": "no-cache",
-        "User-Agent": f"VoiceInput/{current_version}",
+        "User-Agent": f"Rechka/{current_version}",
         "X-GitHub-Api-Version": "2022-11-28",
     }
     timeout = httpx.Timeout(connect=8.0, read=20.0, write=10.0, pool=5.0)
@@ -187,10 +184,9 @@ def download_update(
     destination_dir.mkdir(parents=True, exist_ok=True)
     destination = destination_dir / update.asset.name
     partial = destination.with_suffix(destination.suffix + ".part")
-    for installer_glob in ("Rechka-Setup-*.exe*", "VoiceInput-Setup-*.exe*"):
-        for candidate in destination_dir.glob(installer_glob):
-            if candidate not in {destination, partial} and candidate.is_file():
-                candidate.unlink(missing_ok=True)
+    for candidate in destination_dir.glob("Rechka-Setup-*.exe*"):
+        if candidate not in {destination, partial} and candidate.is_file():
+            candidate.unlink(missing_ok=True)
 
     if destination.exists():
         if (
@@ -202,7 +198,7 @@ def download_update(
             return destination
         destination.unlink()
 
-    headers = {"User-Agent": f"VoiceInput-Updater/{update.version}"}
+    headers = {"User-Agent": f"Rechka-Updater/{update.version}"}
     timeout = httpx.Timeout(connect=15.0, read=90.0, write=30.0, pool=10.0)
     digest = hashlib.sha256()
     downloaded = 0

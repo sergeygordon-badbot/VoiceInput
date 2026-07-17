@@ -1,10 +1,10 @@
 #define MyAppName "Речка"
 #define MyAppExeName "Rechka.exe"
 #ifndef MyAppVersion
-#define MyAppVersion "0.7.1"
+#error MyAppVersion must be provided by build-installer.ps1
 #endif
 #ifndef MyAppSourceDir
-#define MyAppSourceDir "..\dist\VoiceInput-" + MyAppVersion + "\Rechka"
+#define MyAppSourceDir "..\dist\Rechka-" + MyAppVersion + "\Rechka"
 #endif
 #define MyAppPublisher "EBSF"
 
@@ -40,7 +40,7 @@ WizardSmallImageBackColor=$00FFFFFF
 ShowLanguageDialog=no
 SetupLogging=yes
 CloseApplications=force
-CloseApplicationsFilter=VoiceInput.exe,Rechka.exe
+CloseApplicationsFilter=Rechka.exe
 RestartApplications=no
 UninstallDisplayName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
@@ -75,7 +75,8 @@ Type: filesandordirs; Name: "{app}\models\faster-whisper-tiny"
 Type: filesandordirs; Name: "{app}\models\faster-whisper-small"
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "VoiceInput"; Flags: uninsdeletevalue dontcreatekey
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "VoiceInput"; Flags: deletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "Rechka"; Flags: uninsdeletevalue dontcreatekey
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Parameters: "{code:GetLaunchParameters}"; Description: "Запустить Речку"; WorkingDir: "{app}"; Flags: nowait

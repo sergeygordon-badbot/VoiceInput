@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import xml.etree.ElementTree as ET
 from collections import Counter
@@ -20,12 +21,13 @@ LANDING_ROOT = SITE_ROOT / "rechka"
 LANDING_HTML = LANDING_ROOT / "index.html"
 LANDING_SITEMAP = LANDING_ROOT / "sitemap.xml"
 EXPECTED_CANONICAL = "https://ebsf.ru/rechka/"
-EXPECTED_DOWNLOAD = (
-    "https://github.com/sergeygordon-badbot/Rechka/releases/download/"
-    f"v{__version__}/Rechka-Setup-{__version__}.exe"
+EXPECTED_RELEASE_PAGE = (
+    "https://github.com/sergeygordon-badbot/Rechka/releases/latest"
 )
-EXPECTED_FILE_SIZE_EN = "241 MB"
-EXPECTED_FILE_SIZE_RU = "241 МБ"
+EXPECTED_RELEASE_API = (
+    "https://api.github.com/repos/sergeygordon-badbot/Rechka/releases/latest"
+)
+RELEASE_SCRIPT = LANDING_ROOT / "release-v1.js"
 
 
 class LandingParser(HTMLParser):
@@ -176,9 +178,7 @@ def main() -> int:
         )
     if software_payload is not None:
         expected_values = {
-            "softwareVersion": __version__,
-            "fileSize": EXPECTED_FILE_SIZE_EN,
-            "downloadUrl": EXPECTED_DOWNLOAD,
+            "downloadUrl": EXPECTED_RELEASE_PAGE,
         }
         for key, expected in expected_values.items():
             if software_payload.get(key) != expected:
@@ -186,14 +186,57 @@ def main() -> int:
                     f"JSON-LD {key}: ожидалось {expected!r}, "
                     f"получено {software_payload.get(key)!r}"
                 )
+        for dynamic_key in ("softwareVersion", "fileSize"):
+            if dynamic_key in software_payload:
+                errors.append(
+                    f"JSON-LD {dynamic_key} должен заполняться из GitHub Releases"
+                )
 
-    if source.count(EXPECTED_DOWNLOAD) != 4:
+    if source.count(EXPECTED_RELEASE_PAGE) != 4:
         errors.append(
-            "Ссылка актуального установщика должна встречаться четыре раза"
+            "Резервная ссылка последнего релиза должна встречаться четыре раза"
         )
+    expected_markers = {
+        "data-release-download": 3,
+        "data-release-version": 2,
+        "data-release-size": 2,
+    }
+    for marker, expected_count in expected_markers.items():
+        actual_count = source.count(marker)
+        if actual_count != expected_count:
+            errors.append(
+                f"Маркер {marker}: ожидалось {expected_count}, "
+                f"получено {actual_count}"
+            )
+    hardcoded_versions = sorted(set(re.findall(r"\b\d+\.\d+\.\d+\b", source)))
+    if hardcoded_versions:
+        errors.append(
+            "На лендинге нельзя фиксировать номер релиза вручную: "
+            + ", ".join(hardcoded_versions)
+        )
+    if __version__ in source:
+        errors.append("Текущая версия приложения продублирована в лендинге")
+
+    try:
+        release_source = RELEASE_SCRIPT.read_text(encoding="utf-8")
+    except OSError as exc:
+        errors.append(f"Не найден загрузчик данных релиза: {exc}")
+    else:
+        required_release_snippets = (
+            EXPECTED_RELEASE_API,
+            "[data-release-download]",
+            "[data-release-version]",
+            "[data-release-size]",
+            "softwareVersion",
+            "fileSize",
+        )
+        for snippet in required_release_snippets:
+            if snippet not in release_source:
+                errors.append(
+                    f"Загрузчик релиза не обновляет обязательное поле: {snippet}"
+                )
+
     required_release_texts = (
-        f"Речка {__version__}",
-        EXPECTED_FILE_SIZE_RU,
         "Ctrl + Пробел",
         "Whisper Base",
     )
@@ -224,6 +267,7 @@ def main() -> int:
     print(f"description ({len(parser.description)}): {parser.description}")
     print(f"H1: {parser.h1_texts[0]}")
     print(f"JSON-LD: {', '.join(sorted(structured_types))}")
+    print("Release metadata: GitHub Releases (automatic)")
     return 0
 
 

@@ -38,6 +38,7 @@ from voice_input.config import (
     OUTPUT_MODE_OPTIONS,
     RECOGNITION_MODE_OPTIONS,
     AppConfig,
+    data_dir,
     load_config,
     save_config,
 )
@@ -860,6 +861,28 @@ class ConfigTests(unittest.TestCase):
             else:
                 os.environ["VOICE_INPUT_DATA_DIR"] = previous
 
+    def test_legacy_data_directory_is_renamed_to_rechka(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            legacy = root / "VoiceInput"
+            legacy.mkdir()
+            (legacy / "settings.json").write_text("{}", encoding="utf-8")
+
+            with patch.dict(
+                os.environ,
+                {
+                    "LOCALAPPDATA": str(root),
+                    "RECHKA_DATA_DIR": "",
+                    "VOICE_INPUT_DATA_DIR": "",
+                },
+                clear=False,
+            ):
+                migrated = data_dir()
+
+            self.assertEqual(migrated, root / "Rechka")
+            self.assertTrue((migrated / "settings.json").is_file())
+            self.assertFalse(legacy.exists())
+
     def test_fast_mode_and_turbo_model_are_available(self) -> None:
         self.assertEqual(DECODING_BEAM_SIZES["fast"], 1)
         self.assertIn("turbo", MODEL_OPTIONS)
@@ -1051,15 +1074,15 @@ class UpdaterTests(unittest.TestCase):
     def test_release_asset_requires_github_digest(self) -> None:
         payload = {
             "tag_name": "v0.4.0",
-            "html_url": "https://github.com/example/voiceinput/releases/tag/v0.4.0",
+            "html_url": "https://github.com/example/rechka/releases/tag/v0.4.0",
             "draft": False,
             "body": "Новый релиз",
             "assets": [
                 {
-                    "name": "VoiceInput-Setup-0.4.0.exe",
+                    "name": "Rechka-Setup-0.4.0.exe",
                     "browser_download_url": (
-                        "https://github.com/example/voiceinput/releases/download/"
-                        "v0.4.0/VoiceInput-Setup-0.4.0.exe"
+                        "https://github.com/example/rechka/releases/download/"
+                        "v0.4.0/Rechka-Setup-0.4.0.exe"
                     ),
                     "size": 123,
                     "digest": "sha256:" + "a" * 64,
@@ -1106,22 +1129,13 @@ class UpdaterTests(unittest.TestCase):
         self.assertEqual(headers["Cache-Control"], "no-cache")
         self.assertEqual(headers["Pragma"], "no-cache")
 
-    def test_update_prefers_rechka_installer_over_legacy_copy(self) -> None:
+    def test_update_accepts_rechka_installer_name(self) -> None:
         payload = {
             "tag_name": "v0.6.1",
             "html_url": "https://github.com/example/rechka/releases/tag/v0.6.1",
             "draft": False,
             "body": "",
             "assets": [
-                {
-                    "name": "VoiceInput-Setup-0.6.1.exe",
-                    "browser_download_url": (
-                        "https://github.com/example/rechka/releases/download/"
-                        "v0.6.1/VoiceInput-Setup-0.6.1.exe"
-                    ),
-                    "size": 123,
-                    "digest": "sha256:" + "a" * 64,
-                },
                 {
                     "name": "Rechka-Setup-0.6.1.exe",
                     "browser_download_url": (

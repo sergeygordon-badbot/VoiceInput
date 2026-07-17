@@ -29,7 +29,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "Windows version metadata generation failed with exit code $LASTEXITCODE."
 }
 
-$distName = if ($OutputName) { $OutputName } else { "VoiceInput-$version" }
+$distName = if ($OutputName) { $OutputName } else { "Rechka-$version" }
 if ([IO.Path]::GetFileName($distName) -ne $distName) {
     throw "OutputName must be a single directory name."
 }

@@ -28,7 +28,7 @@ VK_F9 = 0x78
 def main() -> int:
     application = QApplication([])
     window = QWidget()
-    window.setWindowTitle("VoiceInput Windows smoke test")
+    window.setWindowTitle("Rechka Windows smoke test")
     layout = QVBoxLayout(window)
     field = QLineEdit()
     layout.addWidget(field)

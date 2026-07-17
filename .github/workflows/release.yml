@@ -2,14 +2,15 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref_name }}
+  group: release-main
   cancel-in-progress: false
 
 env:
@@ -30,7 +31,27 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - name: Determine whether a release is needed
+        id: release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (python -c "from voice_input import __version__; print(__version__)").Trim()
+          $tag = "v$version"
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          gh release view $tag --repo "${{ github.repository }}" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            "needed=false" >> $env:GITHUB_OUTPUT
+            Write-Host "Release $tag already exists; nothing to publish."
+          } else {
+            "needed=true" >> $env:GITHUB_OUTPUT
+            Write-Host "Release $tag will be built from ${{ github.sha }}."
+          }
+
       - name: Prepare build environment
+        if: steps.release.outputs.needed == 'true'
         shell: pwsh
         run: |
           python -m venv .venv
@@ -40,62 +61,67 @@ jobs:
             Set-Content -LiteralPath release.json -Encoding utf8
 
       - name: Verify release version
+        if: steps.release.outputs.needed == 'true'
         shell: pwsh
-        run: .\.venv\Scripts\python.exe tools\check_release_version.py "${{ github.ref_name }}"
+        run: |
+          .\.venv\Scripts\python.exe tools\check_release_version.py "${{ steps.release.outputs.tag }}"
+          .\.venv\Scripts\python.exe tools\check_version_sources.py
+          .\.venv\Scripts\python.exe tools\check_landing.py
 
       - name: Download bundled Whisper models
+        if: steps.release.outputs.needed == 'true'
         shell: pwsh
         run: .\.venv\Scripts\python.exe tools\download_bundled_model.py
 
       - name: Test
+        if: steps.release.outputs.needed == 'true'
         shell: pwsh
         run: .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 
       - name: Build installer
+        if: steps.release.outputs.needed == 'true'
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: .\build-installer.ps1 -RebuildApp
 
       - name: Create checksum
+        if: steps.release.outputs.needed == 'true'
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart("v")
+          $version = "${{ steps.release.outputs.version }}"
           $primary = "dist\installer\Rechka-Setup-$version.exe"
-          $legacy = "dist\installer\VoiceInput-Setup-$version.exe"
           $primaryHash = (Get-FileHash -LiteralPath $primary -Algorithm SHA256).Hash.ToLowerInvariant()
-          $legacyHash = (Get-FileHash -LiteralPath $legacy -Algorithm SHA256).Hash.ToLowerInvariant()
           "$primaryHash  Rechka-Setup-$version.exe" |
             Set-Content -LiteralPath "$primary.sha256" -Encoding ascii
-          "$legacyHash  VoiceInput-Setup-$version.exe" |
-            Set-Content -LiteralPath "$legacy.sha256" -Encoding ascii
 
       - name: Publish GitHub Release
+        if: steps.release.outputs.needed == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $version = "${{ github.ref_name }}".TrimStart("v")
-          gh release create "${{ github.ref_name }}" `
+          $version = "${{ steps.release.outputs.version }}"
+          gh release create "${{ steps.release.outputs.tag }}" `
             "dist\installer\Rechka-Setup-$version.exe" `
             "dist\installer\Rechka-Setup-$version.exe.sha256" `
-            "dist\installer\VoiceInput-Setup-$version.exe" `
-            "dist\installer\VoiceInput-Setup-$version.exe.sha256" `
+            --target "${{ github.sha }}" `
             --title "Речка $version — публичная beta" `
             --generate-notes `
             --latest
 
       - name: Verify update channel
+        if: steps.release.outputs.needed == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $version = "${{ github.ref_name }}".TrimStart("v")
+          $version = "${{ steps.release.outputs.version }}"
           $expectedName = "Rechka-Setup-$version.exe"
           $release = gh api "repos/${{ github.repository }}/releases/latest" |
             ConvertFrom-Json
-          if ($release.tag_name -ne "${{ github.ref_name }}") {
-            throw "Latest release is $($release.tag_name), expected ${{ github.ref_name }}."
+          if ($release.tag_name -ne "${{ steps.release.outputs.tag }}") {
+            throw "Latest release is $($release.tag_name), expected ${{ steps.release.outputs.tag }}."
           }
           $asset = $release.assets |
             Where-Object { $_.name -eq $expectedName } |

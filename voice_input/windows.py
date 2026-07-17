@@ -46,7 +46,7 @@ WS_EX_NOACTIVATE = 0x08000000
 SW_SHOWNOACTIVATE = 4
 SW_RESTORE = 9
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-SHOW_SETTINGS_EVENT_NAME = "Local\\VoiceInputShowSettings"
+SHOW_SETTINGS_EVENT_NAME = "Local\\RechkaShowSettings"
 
 ULONG_PTR = ctypes.c_ulonglong if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_ulong
 
@@ -432,6 +432,10 @@ def set_autostart(enabled: bool, command: str) -> None:
         0,
         winreg.KEY_SET_VALUE,
     ) as key:
+        try:
+            winreg.DeleteValue(key, LEGACY_APP_RUN_KEY)
+        except FileNotFoundError:
+            pass
         if enabled:
             winreg.SetValueEx(key, APP_RUN_KEY, 0, winreg.REG_SZ, command)
         else:
@@ -441,7 +445,8 @@ def set_autostart(enabled: bool, command: str) -> None:
                 pass
 
 
-APP_RUN_KEY = "VoiceInput"
+APP_RUN_KEY = "Rechka"
+LEGACY_APP_RUN_KEY = "VoiceInput"
 
 
 def autostart_command(main_script: Path) -> str:
@@ -464,7 +469,7 @@ def make_window_non_activating(hwnd: int) -> None:
 
 
 def create_single_instance_mutex() -> tuple[int, bool]:
-    handle = kernel32.CreateMutexW(None, False, "Local\\VoiceInputDesktopApp")
+    handle = kernel32.CreateMutexW(None, False, "Local\\RechkaDesktopApp")
     already_exists = ctypes.get_last_error() == ERROR_ALREADY_EXISTS
     return int(handle or 0), already_exists
 
